@@ -9,8 +9,8 @@ def remove_non_ascii(text):
 def remove_tags(text):
     tags_to_remove = [
         r"\*\*\*(IMG|QUOTE|CODE|CITING|LINK|IFRAME)\*\*\*(.|\n)*?\*\*\*(IMG|QUOTE|CODE|CITING|LINK|IFRAME)\*\*\*",
-        r"\[IMG\](.|\n)*?\[/IMG\]"
-        r"[^@]+@[^@]+\.[^@]+"
+        r"\[IMG\](.|\n)*?\[/IMG\]",
+        r"\s[^@\s]+@[^@]+\.[^@\s]+\s"
     ]
 
     for regex in tags_to_remove:
@@ -26,7 +26,7 @@ def process_text(text):
 with open('examples.data', 'r', encoding='utf8') as f:
     examples = f.read().split("===LINESPLIT===")[:-1]
 
-examples = [" opiwdbhaoi boai drsphelps@gmail.com aowu bwo gawodu gadu g"]
+examples = ["@@@@@@@@@.@@@@"]
 
 for e in examples:
     print(process_text(e))
