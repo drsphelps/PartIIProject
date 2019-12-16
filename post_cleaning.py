@@ -1,5 +1,10 @@
 import re
+from nltk.corpus import stopwords
 from gensim.utils import simple_preprocess
+
+
+def remove_stops(text):
+    return [word for word in text if ((word not in stopwords.words('english') and (len(word) >= 3)))]
 
 
 def remove_non_ascii(text):
@@ -20,13 +25,11 @@ def remove_tags(text):
 
 
 def process_text(text):
-    return(remove_tags(remove_non_ascii(text)))
+    return(remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text)))))
 
 
 with open('examples.data', 'r', encoding='utf8') as f:
     examples = f.read().split("===LINESPLIT===")[:-1]
-
-examples = ["@@@@@@@@@.@@@@"]
 
 for e in examples:
     print(process_text(e))
