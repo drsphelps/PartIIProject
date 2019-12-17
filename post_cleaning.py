@@ -27,11 +27,3 @@ def remove_tags(text):
 def process_text(text):
     return(remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text)))))
 
-
-with open('examples.data', 'r', encoding='utf8') as f:
-    examples = f.read().split("===LINESPLIT===")[:-1]
-
-for e in examples:
-    print(process_text(e))
-    input()
-    print("\n\n\n\n=======================================================\n\n\n\n")

@@ -2,3 +2,6 @@
 .vscode/
 venv/
 *.data
+*.modelFile
+__pycache__/
+database_read.py
