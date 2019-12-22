@@ -26,4 +26,3 @@ def remove_tags(text):
 
 def process_text(text):
     return(remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text)))))
-
