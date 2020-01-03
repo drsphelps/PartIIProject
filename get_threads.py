@@ -36,4 +36,25 @@ def run_query():
     conn.close_connection()
 
 
-run_query()
+def get_from_keyword(word):
+    conn = db()
+    ts = []
+    ps = [] 
+
+    query = '''SELECT * FROM "Thread" WHERE "Heading" like '%''' + word + '''%' AND "Site" = 0 AND "NumPosts" < 200 ORDER BY "NumPosts" DESC LIMIT 200;'''
+    threads = conn.run_query(query)
+
+    for thread in threads:
+        ts.append(thread[0])
+
+    for t in ts:
+        posts = conn.get_posts_from_thread(t)
+        added = 0
+        for post in posts:
+            if len(ps) < 500 and len(post[1]) > 200:
+                ps.append(post)
+                added += 1
+        if len(ps) >= 500:
+            break
+    return ps
+

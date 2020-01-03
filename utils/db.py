@@ -20,6 +20,11 @@ class db:
         self.cursor.execute(query)
         return self.cursor.fetchall()
 
+    def get_posts_from_thread(self, threadId):
+        query = 'SELECT "IdPost", "Content" FROM "Post" WHERE "Thread" = ' + str(threadId) + 'AND "Site" = 0 ORDER BY "IdPost" ASC'
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
     def close_connection(self):
         if(self.connection):
             self.cursor.close()

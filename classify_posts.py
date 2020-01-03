@@ -13,9 +13,12 @@ crime_threads = []
 noncrime_threads = []
 
 for thread in threads:
+    print(thread)
+    threadId = thread.split('|')[0].strip()
     query = 'SELECT "IdPost", "Content" FROM "Post" WHERE "Thread" = ' + \
-        thread + ' AND "Site" = 0'
-    posts = conn.run_query(query)
+        threadId + ' AND "Site" = 0'
+    posts = sorted(conn.run_query(query))
+    
     for post in posts:
         print(post[1].strip('\n'))
         print('\n\n')

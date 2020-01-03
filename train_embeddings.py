@@ -1,6 +1,7 @@
 import psycopg2
 from utils.db import db
 from post_cleaning import process_text
+from get_threads import get_from_keyword
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from gensim.models import TfidfModel
 from gensim.corpora import Dictionary
@@ -60,5 +61,3 @@ def create_doc2vec_model():
     return model
 
 
-m, d = create_tfidf_model()
-print(infer_tfidf(m, ['hello', 'world'], d))
