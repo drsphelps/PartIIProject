@@ -27,6 +27,7 @@ for thread in threads:
         crime_threads.append(thread)
     else:
         noncrime_threads.append(thread)
+    conn.close_connection()
 
 with open('crime.data', 'a') as f:
     for c in crime_threads:
