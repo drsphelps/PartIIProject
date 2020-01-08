@@ -1,7 +1,6 @@
 import re
 from nltk.corpus import stopwords
 from gensim.utils import simple_preprocess
-from get_threads import get_from_keyword
 
 
 def remove_stops(text):

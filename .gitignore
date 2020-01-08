@@ -1,8 +1,10 @@
 .pytest_cache/
 .vscode/
 venv/
+*.bak
+*.out
 *.data
-*.modelFile
+*.modelFile*
 __pycache__/
 database_read.py
 svm_learn

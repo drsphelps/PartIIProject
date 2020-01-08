@@ -1,6 +1,8 @@
-from get_threads import get_from_keyword
+from utils.db import db
 from post_cleaning import process_text
 from gensim.models.doc2vec import Doc2Vec
+import numpy as np
+import random
 import subprocess
 
 no_part = 10
@@ -26,35 +28,33 @@ def write_to_file(f_name, data):
 
 
 def train_svm(type1, type2):
-    d2v_model = Doc2Vec.load('.modelFile')
+    d2v_model = Doc2Vec.load('1.modelFile')
     training = []
 
     for (idPost, content) in type1:
-        vector = [(i+1, p) for i, p in enumerate(d2v_model.infer_vector(content))]
+        vector = d2v_model.infer_vector(doc_words=content)
         training.append((1, vector))
 
-
     for (idPost, content) in type2:
-        vector = [(i+1, p) for i, p in enumerate(d2v_model.infer_vector(content))]
+        vector = d2v_model.infer_vector(doc_words=content)
         training.append((-1, vector))
-
+    
     write_to_file('training.data', training)
 
     subprocess.call("./svm_learn training.data model.data", shell=True)
 
 
 def predict(type1, type2):
-    d2v_model = Doc2Vec.load('.modelFile')
+    d2v_model = Doc2Vec.load('1.modelFile')
     test = []
     results = {}
- 
+
     for (idPost, content) in type1:
-        vector = d2v_model.infer_vector(content)
+        vector = d2v_model.infer_vector(doc_words=content)
         test.append((1, vector))
 
-
     for (idPost, content) in type2:
-        vector = d2v_model.infer_vector(content)
+        vector = d2v_model.infer_vector(doc_words=content)
         test.append((-1, vector))
 
     write_to_file('test.data', test)
@@ -91,10 +91,29 @@ def build_training(features, index):
     return r
 
 
-def cross_validation():
-    type1_posts = rr_split([(i, process_text(c)) for (i, c) in get_from_keyword('ewhor')])
-    type2_posts = rr_split([(i, process_text(c)) for (i, c) in get_from_keyword('booter')])
-    
+def cross_validation(f1, f2):
+    type1_posts = []
+    type2_posts = []
+
+    conn = db()
+
+    with open(f1, 'r') as f:
+        for line in f:
+            type1_posts.append((line, process_text(conn.get_content_from_post(line, 0))))
+
+    with open(f2, 'r') as f:
+        for line in f:
+            type2_posts.append((line, process_text(conn.get_content_from_post(line, 0))))
+
+   
+    print(type1_posts)
+    print(type2_posts)
+
+    conn.close_connection()
+
+    type1_posts = rr_split(type1_posts)
+    type2_posts = rr_split(type2_posts)
+
     for i in range(0, no_part):
         type1_training = build_training(type1_posts, i)
         type2_training = build_training(type2_posts, i)
@@ -103,6 +122,5 @@ def cross_validation():
         results = predict(type1_posts[i], type2_posts[i])
 
 
-cross_validation()
-
     
+cross_validation('ewhor_training.data', 'stresser_training.data')
