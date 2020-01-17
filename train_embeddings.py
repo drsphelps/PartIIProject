@@ -6,30 +6,52 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from gensim.models.callbacks import CallbackAny2Vec
 from gensim.models import TfidfModel
 from gensim.corpora import Dictionary
+from gensim.test.utils import get_tmpfile
+from datetime import datetime
+import logging
 import os
+import time
+
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', 
+                    filename=datetime.now().strftime('logs/%H%M%d%m%Y.log'), 
+                    level=logging.DEBUG, 
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 class MonitorCallback(CallbackAny2Vec):
+
+    def __init__(self, path):
+        self.epoch = 0
+        self.path = path
+
     def on_epoch_end(self, model):
-        print("Model loss: ", model.get_latest_training_loss())
+        logging.info("Epoch " + str(self.epoch) + " completed")
+        output_path = get_tmpfile('{}_epoch{}.model'.format(self.path, self.epoch))
+        model.save(output_path)
+        self.epoch += 1    
 
-
-def get_db_records(n):
+def get_db_records():
     conn = db()
-    query = 'SELECT "Content" FROM "Post" WHERE "Site" = 0 AND LENGTH("Content") > 200 LIMIT 1000000'
-    records = [r[0] for r in conn.run_query(query)]
+    records = []
+    forums = [4, 10, 25, 46, 48, 92, 107, 114, 170, 186]
+    for forum in forums:
+        query = 'SELECT p."Content" FROM "Post" p INNER JOIN "Thread" t ON p."Thread" = t."IdThread" WHERE p."Site" = 0 AND LENGTH(p."Content") > 200 AND t."Forum" =' + str(forum) + 'LIMIT 100000'
+        records.extend([r[0] for r in conn.run_query(query)])
     conn.close_connection()
 
 
-    print(len(records))
+    logging.info("Number of records collected: " + str(len(records)))
     return records
 
 
 def preprocess_records():
-    records = get_db_records(10000)
+    records = get_db_records()
+    processed = []
 
     for i in range(len(records)):
         r = process_text(records[i])
-        yield TaggedDocument(r, [i])
+        processed.append(TaggedDocument(r, [i]))
+
+    return processed
 
 
 def preprocess_tfidf():
@@ -49,25 +71,26 @@ def infer_tfidf(model, vector, dct):
 
 
 def build_model():
-    monitor = MonitorCallback()
-    return Doc2Vec(seed=0, dm=0, vector_size=100,
-                   min_count=2, epochs=10, workers=8,
-                   hs=1, window=10)
+    monitor = MonitorCallback('1')
+    return Doc2Vec(seed=0, dm=0, vector_size=500,
+                   min_count=100, epochs=10, workers=16,
+                   hs=1, window=10, callbacks=[monitor])
 
-
+    
 def create_doc2vec_model():
     r = preprocess_records()
-    print("GOT POSTS")
+
+    logging.info("Data collected")
 
     model = build_model()
     model.build_vocab(r)
-    print("VOCAB BUILT")
+    logging.info("Vocabulary Built")
     model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
 
     model.delete_temporary_training_data(
         keep_doctags_vectors=True, keep_inference=True)
 
     model.save('1.modelFile')
-    return model
+    logging.info("Completed")
 
-create_doc2vec_model()
+    return model
