@@ -62,25 +62,25 @@ def predict(type1, type2):
 
     subprocess.call("./svm_classify test.data model.data predictions.data", shell=True)
 
-    predicitions = []
+    predictions = []
 
     with open('predicitons.data',  'r') as f:
-        predicitions.extend([float(p) for p in f.read().split('\n') if p != ""])
+        predictions.extend([float(p) for p in f.read().split('\n') if p != ""])
 
 
     correct = 0
     combined = type1 + type2
     
     for i in range(len(predictions)):
-        predicition = "type1" if predictions[i] > 0  else "type2"
+        prediction = "type1" if predictions[i] > 0  else "type2"
         if prediction == "type1" and i < 500:
             correct += 1
-        elif prediciton == "type2" and i >= 500:
+        elif prediction == "type2" and i >= 500:
             correct += 1
-        results[combined[i][0]] = (prediciton, 0 if i < 500 else 1)
+        results[combined[i][0]] = (prediction, 0 if i < 500 else 1)
 
 
-    print(float(correct)/float(total))
+    print(float(correct)/float(len(combined)))
     return results
 
 

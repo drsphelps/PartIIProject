@@ -55,7 +55,7 @@ def preprocess_records():
 
 
 def preprocess_tfidf():
-    return [process_text(r) for r in get_db_records(100000)]
+    return [process_text(r) for r in get_db_records()]
 
 
 def create_tfidf_model():
@@ -67,7 +67,7 @@ def create_tfidf_model():
 
 def infer_tfidf(model, vector, dct):
     bow = dct.doc2bow(vector)
-    return m[bow]
+    return model[bow]
 
 
 def build_model():
