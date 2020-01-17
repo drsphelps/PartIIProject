@@ -1,4 +1,5 @@
 from utils.db import db
+from train_embeddings import MonitorCallback
 from post_cleaning import process_text
 from gensim.models.doc2vec import Doc2Vec
 import numpy as np
