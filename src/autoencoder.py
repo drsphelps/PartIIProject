@@ -33,8 +33,9 @@ def build_encoder():
     L2 = Dense(int(encode/2))(L1)
     L3 = Dense(int(encode/2))(L2)
     L4 = Dense(encode)(L3)
+    output = Dense(dimensions)(L4)
 
-    model = Model(inputs=input_layer, outputs=L4)
+    model = Model(inputs=input_layer, outputs=output)
     return model
 
 
@@ -44,7 +45,7 @@ def build_encoder():
 posts = []
 conn = db()
 
-for post in conn.get_noncrime_posts(100000):
+for post in conn.get_noncrime_posts(15000):
     if len(process_text(post[0])) > 10:
         posts.append(post)
 

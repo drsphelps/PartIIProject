@@ -36,14 +36,17 @@ class db:
 
     def get_noncrime_posts(self, n):
         forums = [222, 65, 293, 248, 167, 32, 262, 128]
-        query = '''SELECT DISTINCT p."Content" FROM "Post" p INNER JOIN "Thread" t ON t."IdThread" = p."Thread" WHERE t."Site" = 0 AND t."Forum" = 170 AND LENGTH(p."Content") > 200 AND LOWER(t."Heading") not similar to '%(ewhor|e-whor|hack|crypt|stresser|booter|ddos| rat |dump|phish|exploit|botnet)%' AND LOWER(p."Content") not similar to '%(hidden content.|register)%' LIMIT ''' + str(
-            n)
-        self.cursor.execute(query)
-        result = self.cursor.fetchall()
-        print(len(result))
-        return result
+        results = []
+        for forum in forums:
+            query = '''SELECT DISTINCT p."Content" FROM "Post" p INNER JOIN "Thread" t ON t."IdThread" = p."Thread" WHERE t."Site" = 0 AND t."Forum" = ''' + str(
+                    forum) + ''' AND LENGTH(p."Content") > 200 AND LOWER(t."Heading") not similar to '%(ewhor|e-whor|hack|crypt|stresser|booter|ddos| rat |dump|phish|exploit|botnet)%' AND LOWER(p."Content") not similar to '%(hidden content.|register)%' LIMIT ''' + str(
+                    n)
+            self.cursor.execute(query)  
+            result = self.cursor.fetchall()
+            results.extend(result)
+        return results
 
     def close_connection(self):
         if(self.connection):
             self.cursor.close()
-            self.connection.close()
+            self.connection.close()#
