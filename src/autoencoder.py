@@ -6,10 +6,10 @@ from post_cleaning import process_text
 from utils.db import db
 from keras.layers import Input, Dense
 from keras.models import Model
-
+from sklearn.model_selection import train_test_split
 
 # DATA_DIR = 'data/'
-# d2v_model = Doc2Vec.load('data/models/1.modelFile')
+d2v_model = Doc2Vec.load('data/models/1.modelFile')
 
 
 # vectors = []
@@ -29,11 +29,10 @@ def build_encoder():
     encode = 250
 
     input_layer = Input(shape=(500, ))
-    L1 = Dense(encode)(input_layer)
-    L2 = Dense(int(encode/2))(L1)
-    L3 = Dense(int(encode/2))(L2)
-    L4 = Dense(encode)(L3)
-    output = Dense(dimensions)(L4)
+    L1 = Dense(encode, activation="relu")(input_layer)
+    L2 = Dense(int(encode/2), activation="tanh")(L1)
+    L3 = Dense(int(encode/2), activation="tanh")(L2)
+    output = Dense(dimensions, activation="relu")(L3)
 
     model = Model(inputs=input_layer, outputs=output)
     return model
@@ -45,9 +44,24 @@ def build_encoder():
 posts = []
 conn = db()
 
-for post in conn.get_noncrime_posts(15000):
-    if len(process_text(post[0])) > 10:
-        posts.append(post)
+for post in conn.get_noncrime_posts(100):
+    v = process_text(post[0])
+    if len(v) > 10:
+        posts.append(d2v_model.infer_vector(post))
 
-print(posts[:100])
-print(len(posts))
+X = np.stack(posts)
+print(X.shape)
+X_train, X_test = train_test_split(X, test_size=0.2)
+
+
+model = build_encoder()
+model.compile(optimizer="adam",
+              loss='mean_squared_error',
+              metrics=['accuracy'])
+
+history = model.fit(X_train, X_train,
+                    epochs=100,
+                    batch_size=int(X_train.shape[0]/10),
+                    shuffle=True,
+                    validation_data=(X_test, X_test),
+                    verbose=1).history
