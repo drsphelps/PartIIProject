@@ -40,7 +40,7 @@ class db:
         results = []
         for forum in forums:
             query = '''SELECT DISTINCT p."Content" FROM "Post" p INNER JOIN "Thread" t ON t."IdThread" = p."Thread" WHERE t."Site" = 0 AND t."Forum" = ''' + str(
-                    forum) + ''' AND LENGTH(p."Content") > 200 AND LOWER(t."Heading") not similar to '%(ewhor|e-whor|hack|crypt|stresser|booter|ddos| rat |dump|phish|exploit|botnet)%' AND LOWER(p."Content") not similar to '%(hidden content.|register)%';'''
+                    forum) + ''' AND LENGTH(p."Content") > 200 AND LOWER(t."Heading") not similar to '%(ewhor|e-whor|hack|crypt|stresser|booter|ddos| rat |dump|phish|exploit|botnet)%' AND LOWER(p."Content") not similar to '%(hidden content.|register)%' LIMIT ''' + str(n)
             self.cursor.execute(query)
             result = self.cursor.fetchall()
             results.extend(result)
