@@ -9,7 +9,7 @@ class db:
     def get_conn(self):
         try:
             connection = psycopg2.connect(host="127.0.0.1",
-                                          port="3333",
+                                          port="5432",
                                           database="crimebb",
                                           user="drsp2")
         except (Exception, psycopg2.Error) as error:

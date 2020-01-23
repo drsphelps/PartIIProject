@@ -10,6 +10,7 @@ from keras.models import Model
 from sklearn.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
 from keras.optimizers import adam
+from sklearn import svm
 from datetime import datetime
 import logging
 
@@ -19,12 +20,12 @@ conn = db()
 
 def build_encoder():
     input_layer = Input(shape=(500, ))
-    L0 = Dense(128, activation="relu")(input_layer)
-    L1 = Dense(32, activation="relu")(L0)
+    L0 = Dense(128, activation="tanh")(input_layer)
+    L1 = Dense(32, activation="tanh")(L0)
     L2 = Dense(8, activation="relu")(L1)
-    L3 = Dense(32, activation="relu")(L2)
-    L4 = Dense(128, activation="relu")(L3)
-    output = Dense(500, activation="relu")(L4)
+    L3 = Dense(32, activation="tanh")(L2)
+    L4 = Dense(128, activation="tanh")(L3)
+    output = Dense(500, activation="tanh")(L4)
 
     model = Model(inputs=input_layer, outputs=output)
     return model
@@ -76,7 +77,7 @@ def load_crime_data(folder):
     return tests
 
 
-def test_dataset(comparison):
+def test_dataset(comparison, predict):
     def func(dataset, limit):
         correct = 0.0
         total = 0.0
@@ -84,7 +85,7 @@ def test_dataset(comparison):
         for i in range(0, dataset.shape[0]):
             example = dataset[i:i+1, :]
             mse = np.mean(
-                np.power(example - model.predict(example), 2), axis=1)
+                np.power(example - predict(example), 2), axis=1)
             if comparison(mse, limit):
                 correct += 1.0
             total += 1.0
@@ -96,29 +97,49 @@ def test_dataset(comparison):
 if __name__ == '__main__':
     X = load_dataset()
     X, X_test = train_test_split(X, test_size=0.1)
-    X_train, X_val = train_test_split(X, test_size=0.99)
+    X_train, X_val = train_test_split(X, test_size=0.1)
     X = X / np.linalg.norm(X)
 
-    optimiser = adam(learning_rate=0.000001, beta_1=0.9,
-                     beta_2=0.999, amsgrad=False)
+    # optimiser = adam(learning_rate=0.0001, beta_1=0.9,
+    #                  beta_2=0.999, amsgrad=False)
 
-    model = train_encoder(optimiser, X_train, X_val)
+    # model = train_encoder(optimiser, X_train, X_val)
 
     tests = load_crime_data('ewhore')
 
-    super_test = []
-    for thread in [5881918, 1262128, 2804572, 1065115]:
-        posts = conn.get_posts_from_thread(thread)
-        for p in posts:
-            super_test.append(d2v_model.infer_vector(process_text(p[1])))
-    super_test = np.stack(super_test)
+    model = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
+    model.fit(X_train)
 
-    greater_comparison = test_dataset(lambda a, b: a > b)
-    lesser_comparison = test_dataset(lambda a, b: a < b)
+    y_pred_train = model.predict(X_train)
+    y_pred_test = model.predict(X_test)
+    y_pred_outliers = model.predict(X_val)
+    y_tests = model.predict(tests)
+    n_error_train = y_pred_train[y_pred_train == -1].size
+    n_error_test = y_pred_test[y_pred_test == -1].size
+    n_error_outliers = y_pred_outliers[y_pred_outliers == -1].size
 
-    nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
-    c_correct, c_total = greater_comparison(tests, 0.0001)
-    s_correct, s_total = lesser_comparison(super_test, 0.0001)
+    print(X_train.shape)
+    print(y_pred_train[y_pred_train == 1].shape)
 
-    print("Super Accuracy: " + str(s_correct/s_total))
-    print("Accuracy: " + str((nc_correct+c_correct)/(nc_total+c_total)))
+    print(X_test.shape)
+    print(y_pred_test[y_pred_test == 1].shape)
+
+    print(tests.shape)
+    print(y_tests[y_tests == 1].shape)
+
+    # super_test = []
+    # for thread in [5881918, 1262128, 2804572, 1065115]:
+    #     posts = conn.get_posts_from_thread(thread)
+    #     for p in posts:
+    #         super_test.append(d2v_model.infer_vector(process_text(p[1])))
+    # super_test = np.stack(super_test)
+
+    # greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
+    # lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
+
+    # nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
+    # c_correct, c_total = greater_comparison(tests, 0.0001)
+    # s_correct, s_total = lesser_comparison(super_test, 0.0001)
+
+    # print("Super Accuracy: " + str(s_correct/s_total))
+    # print("Accuracy: " + str((nc_correct+c_correct)/(nc_total+c_total)))
