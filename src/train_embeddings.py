@@ -12,10 +12,11 @@ import logging
 import os
 import time
 
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', 
-                    filename=datetime.now().strftime('logs/%H%M%d%m%Y.log'), 
-                    level=logging.DEBUG, 
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                    filename=datetime.now().strftime('logs/%H%M%d%m%Y.log'),
+                    level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
+
 
 class MonitorCallback(CallbackAny2Vec):
 
@@ -25,19 +26,21 @@ class MonitorCallback(CallbackAny2Vec):
 
     def on_epoch_end(self, model):
         logging.info("Epoch " + str(self.epoch) + " completed")
-        output_path = get_tmpfile('{}_epoch{}.model'.format(self.path, self.epoch))
+        output_path = get_tmpfile(
+            '{}_epoch{}.model'.format(self.path, self.epoch))
         model.save(output_path)
-        self.epoch += 1    
+        self.epoch += 1
+
 
 def get_db_records():
     conn = db()
     records = []
     forums = [4, 10, 25, 46, 48, 92, 107, 114, 170, 186]
     for forum in forums:
-        query = 'SELECT p."Content" FROM "Post" p INNER JOIN "Thread" t ON p."Thread" = t."IdThread" WHERE p."Site" = 0 AND LENGTH(p."Content") > 200 AND t."Forum" =' + str(forum) + 'LIMIT 100000'
+        query = 'SELECT p."Content" FROM "Post" p INNER JOIN "Thread" t ON p."Thread" = t."IdThread" WHERE p."Site" = 0 AND LENGTH(p."Content") > 200 AND t."Forum" =' + str(
+            forum) + 'LIMIT 10000'
         records.extend([r[0] for r in conn.run_query(query)])
     conn.close_connection()
-
 
     logging.info("Number of records collected: " + str(len(records)))
     return records
@@ -76,7 +79,7 @@ def build_model():
                    min_count=100, epochs=10, workers=16,
                    hs=1, window=10, callbacks=[monitor])
 
-    
+
 def create_doc2vec_model():
     r = preprocess_records()
 
@@ -84,6 +87,10 @@ def create_doc2vec_model():
 
     model = build_model()
     model.build_vocab(r)
+
+    model.save()
+    model.vector_size = 100
+
     logging.info("Vocabulary Built")
     model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
 

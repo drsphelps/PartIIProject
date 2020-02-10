@@ -10,3 +10,4 @@ database_read.py
 svm_learn
 svm_classify
 logs/*
+*.png

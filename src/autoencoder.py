@@ -22,10 +22,8 @@ def build_encoder():
     input_layer = Input(shape=(500, ))
     L0 = Dense(128, activation="tanh")(input_layer)
     L1 = Dense(32, activation="tanh")(L0)
-    L2 = Dense(8, activation="relu")(L1)
-    L3 = Dense(32, activation="tanh")(L2)
-    L4 = Dense(128, activation="tanh")(L3)
-    output = Dense(500, activation="tanh")(L4)
+    L2 = Dense(128, activation="tanh")(L1)
+    output = Dense(500, activation="tanh")(L2)
 
     model = Model(inputs=input_layer, outputs=output)
     return model
@@ -64,6 +62,7 @@ def load_dataset():
     with open('ae.data', 'rb') as f:
         X = pickle.load(f)
     np.random.shuffle(X)
+    X = X / np.linalg.norm(X)
     return X
 
 
@@ -74,6 +73,7 @@ def load_crime_data(folder):
             tests.append(d2v_model.infer_vector(process_text(f.read())))
 
     tests = np.stack(tests)
+    tests = tests / np.linalg.norm(tests)
     return tests
 
 
@@ -96,50 +96,52 @@ def test_dataset(comparison, predict):
 
 if __name__ == '__main__':
     X = load_dataset()
+    X = X / np.linalg.norm(X)
+    # X, throwaway = train_test_split(X, 0.9)
     X, X_test = train_test_split(X, test_size=0.1)
     X_train, X_val = train_test_split(X, test_size=0.1)
-    X = X / np.linalg.norm(X)
 
-    # optimiser = adam(learning_rate=0.0001, beta_1=0.9,
-    #                  beta_2=0.999, amsgrad=False)
+    optimiser = adam(learning_rate=0.0001, beta_1=0.9,
+                     beta_2=0.999, amsgrad=False)
 
-    # model = train_encoder(optimiser, X_train, X_val)
+    model = train_encoder(optimiser, X_train, X_val)
 
     tests = load_crime_data('ewhore')
 
-    model = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
-    model.fit(X_train)
+    # model = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
+    # model.fit(X_train)
 
-    y_pred_train = model.predict(X_train)
-    y_pred_test = model.predict(X_test)
-    y_pred_outliers = model.predict(X_val)
-    y_tests = model.predict(tests)
-    n_error_train = y_pred_train[y_pred_train == -1].size
-    n_error_test = y_pred_test[y_pred_test == -1].size
-    n_error_outliers = y_pred_outliers[y_pred_outliers == -1].size
+    # y_pred_train = model.predict(X_train)
+    # y_pred_test = model.predict(X_test)
+    # y_pred_outliers = model.predict(X_val)
+    # y_tests = model.predict(tests)
+    # n_error_train = y_pred_train[y_pred_train == -1].size
+    # n_error_test = y_pred_test[y_pred_test == -1].size
+    # n_error_outliers = y_pred_outliers[y_pred_outliers == -1].size
 
-    print(X_train.shape)
-    print(y_pred_train[y_pred_train == 1].shape)
+    # print(X_train.shape)
+    # print(y_pred_train[y_pred_train == 1].shape)
 
-    print(X_test.shape)
-    print(y_pred_test[y_pred_test == 1].shape)
+    # print(X_test.shape)
+    # print(y_pred_test[y_pred_test == 1].shape)
 
-    print(tests.shape)
-    print(y_tests[y_tests == 1].shape)
+    # print(tests.shape)
+    # print(y_tests[y_tests == 1].shape)
 
-    # super_test = []
-    # for thread in [5881918, 1262128, 2804572, 1065115]:
-    #     posts = conn.get_posts_from_thread(thread)
-    #     for p in posts:
-    #         super_test.append(d2v_model.infer_vector(process_text(p[1])))
-    # super_test = np.stack(super_test)
+    super_test = []
+    for thread in [5881918, 1262128, 2804572, 1065115]:
+        posts = conn.get_posts_from_thread(thread)
+        for p in posts:
+            super_test.append(d2v_model.infer_vector(process_text(p[1])))
+    super_test = np.stack(super_test)
+    super_test = super_test / np.linalg.norm(super_test)
 
-    # greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
-    # lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
+    greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
+    lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
 
-    # nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
-    # c_correct, c_total = greater_comparison(tests, 0.0001)
-    # s_correct, s_total = lesser_comparison(super_test, 0.0001)
+    nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
+    c_correct, c_total = greater_comparison(tests, 0.0001)
+    s_correct, s_total = lesser_comparison(super_test, 0.0001)
 
-    # print("Super Accuracy: " + str(s_correct/s_total))
-    # print("Accuracy: " + str((nc_correct+c_correct)/(nc_total+c_total)))
+    print("Super Accuracy: " + str(s_correct/s_total))
+    print("Accuracy: " + str((nc_correct+c_correct)/(nc_total+c_total)))
