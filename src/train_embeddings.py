@@ -35,7 +35,8 @@ class MonitorCallback(CallbackAny2Vec):
 def get_db_records():
     conn = db()
     records = []
-    forums = [4, 10, 25, 46, 48, 92, 107, 114, 170, 186]
+    forums = [4, 10, 25, 46, 48, 92, 107, 114,
+              170, 186, 222, 293, 248, 167, 262]
     for forum in forums:
         query = 'SELECT p."Content" FROM "Post" p INNER JOIN "Thread" t ON p."Thread" = t."IdThread" WHERE p."Site" = 0 AND LENGTH(p."Content") > 200 AND t."Forum" =' + str(
             forum) + 'LIMIT 10000'
@@ -75,8 +76,8 @@ def infer_tfidf(model, vector, dct):
 
 def build_model():
     monitor = MonitorCallback('1')
-    return Doc2Vec(seed=0, dm=0, vector_size=500,
-                   min_count=100, epochs=10, workers=16,
+    return Doc2Vec(seed=0, dm=0, vector_size=100,
+                   min_count=100, epochs=10, workers=9,
                    hs=1, window=10, callbacks=[monitor])
 
 
@@ -88,7 +89,7 @@ def create_doc2vec_model():
     model = build_model()
     model.build_vocab(r)
 
-    model.save()
+    model.save("test.modelFile")
     model.vector_size = 100
 
     logging.info("Vocabulary Built")
@@ -100,4 +101,10 @@ def create_doc2vec_model():
     model.save('1.modelFile')
     logging.info("Completed")
 
-    return model
+    model = Doc2Vec.load('1.modelFile')
+    a = model.infer_vector(["hello"])
+    print(len(a))
+
+
+if __name__ == "__main__":
+    create_doc2vec_model()

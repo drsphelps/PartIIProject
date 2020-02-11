@@ -14,16 +14,16 @@ from sklearn import svm
 from datetime import datetime
 import logging
 
-d2v_model = Doc2Vec.load('data/models/1.modelFile')
+d2v_model = Doc2Vec.load('1.modelFile')
 conn = db()
 
 
 def build_encoder():
-    input_layer = Input(shape=(500, ))
-    L0 = Dense(128, activation="tanh")(input_layer)
-    L1 = Dense(32, activation="tanh")(L0)
-    L2 = Dense(128, activation="tanh")(L1)
-    output = Dense(500, activation="tanh")(L2)
+    input_layer = Input(shape=(100, ))
+    L0 = Dense(32, activation="tanh")(input_layer)
+    L1 = Dense(8, activation="tanh")(L0)
+    L2 = Dense(32, activation="tanh")(L1)
+    output = Dense(100, activation="tanh")(L2)
 
     model = Model(inputs=input_layer, outputs=output)
     return model
@@ -95,7 +95,7 @@ def test_dataset(comparison, predict):
 
 
 if __name__ == '__main__':
-    X = load_dataset()
+    X = noncrime_dataset(15000, True)
     X = X / np.linalg.norm(X)
     # X, throwaway = train_test_split(X, 0.9)
     X, X_test = train_test_split(X, test_size=0.1)

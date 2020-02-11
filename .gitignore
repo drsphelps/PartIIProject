@@ -11,3 +11,4 @@ svm_learn
 svm_classify
 logs/*
 *.png
+*.b

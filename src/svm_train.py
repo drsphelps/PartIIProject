@@ -23,7 +23,8 @@ def rr_split(features):
 
 
 def write_to_file(f_name, data):
-    s = '\n'.join([str(value) + " " + ' '.join([str(i+1) + ':' + str(vector[i]) for i in range(0, len(vector))]) for (value, vector) in data])
+    s = '\n'.join([str(value) + " " + ' '.join([str(i+1) + ':' + str(vector[i])
+                                                for i in range(0, len(vector))]) for (value, vector) in data])
     with open(f_name, 'w') as f:
         f.write(s)
 
@@ -39,7 +40,7 @@ def train_svm(type1, type2):
     for (idPost, content) in type2:
         vector = d2v_model.infer_vector(doc_words=content)
         training.append((-1, vector))
-    
+
     write_to_file('training.data', training)
 
     subprocess.call("./svm_learn training.data model.data", shell=True)
@@ -60,25 +61,24 @@ def predict(type1, type2):
 
     write_to_file('test.data', test)
 
-    subprocess.call("./svm_classify test.data model.data predictions.data", shell=True)
+    subprocess.call(
+        "./svm_classify test.data model.data predictions.data", shell=True)
 
     predictions = []
 
-    with open('predicitons.data',  'r') as f:
+    with open('predictions.data',  'r') as f:
         predictions.extend([float(p) for p in f.read().split('\n') if p != ""])
-
 
     correct = 0
     combined = type1 + type2
-    
-    for i in range(len(predictions)):
-        prediction = "type1" if predictions[i] > 0  else "type2"
-        if prediction == "type1" and i < 500:
-            correct += 1
-        elif prediction == "type2" and i >= 500:
-            correct += 1
-        results[combined[i][0]] = (prediction, 0 if i < 500 else 1)
 
+    for i in range(len(predictions)):
+        prediction = "type1" if predictions[i] > 0 else "type2"
+        if prediction == "type1" and i < 50:
+            correct += 1
+        elif prediction == "type2" and i >= 50:
+            correct += 1
+        results[combined[i][0]] = (prediction, 0 if i < 50 else 1)
 
     print(float(correct)/float(len(combined)))
     return results
@@ -96,21 +96,19 @@ def cross_validation(f1, f2):
     type1_posts = []
     type2_posts = []
 
-    conn = db()
+    folder_path = 'data/' + f1 + '/'
+    for i in range(0, 500):
+        print(i)
+        with open(folder_path + str(i) + '.data', 'r') as f:
+            type1_posts.append(
+                (str(i), process_text(f.read())))
 
-    with open(f1, 'r') as f:
-        for line in f:
-            type1_posts.append((line, process_text(conn.get_content_from_post(line, 0))))
-
-    with open(f2, 'r') as f:
-        for line in f:
-            type2_posts.append((line, process_text(conn.get_content_from_post(line, 0))))
-
-   
-    print(type1_posts)
-    print(type2_posts)
-
-    conn.close_connection()
+    folder_path = 'data/' + f2 + '/'
+    for i in range(0, 500):
+        print(i)
+        with open(folder_path + str(i) + '.data', 'r') as f:
+            type2_posts.append(
+                (str(i), process_text(f.read())))
 
     type1_posts = rr_split(type1_posts)
     type2_posts = rr_split(type2_posts)
@@ -123,5 +121,4 @@ def cross_validation(f1, f2):
         results = predict(type1_posts[i], type2_posts[i])
 
 
-    
-cross_validation('ewhor_training.data', 'stresser_training.data')
+cross_validation('ewhore_data', 'stresser_data')
