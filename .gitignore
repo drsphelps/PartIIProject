@@ -1,3 +1,6 @@
+.idea/
+data/
+src/logs/
 .pytest_cache/
 .vscode/
 venv/

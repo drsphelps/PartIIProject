@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 from gensim.models import Doc2Vec
-from train_embeddings import MonitorCallback
+from utils.MonitorCallback import MonitorCallback
 from post_cleaning import process_text
 from utils.db import db
 from keras.layers import Input, Dense
@@ -14,7 +14,7 @@ from sklearn import svm
 from datetime import datetime
 import logging
 
-d2v_model = Doc2Vec.load('1.modelFile')
+d2v_model = Doc2Vec.load('data/models/2.modelFile')
 conn = db()
 
 
@@ -86,6 +86,7 @@ def test_dataset(comparison, predict):
             example = dataset[i:i+1, :]
             mse = np.mean(
                 np.power(example - predict(example), 2), axis=1)
+            # print(mse)
             if comparison(mse, limit):
                 correct += 1.0
             total += 1.0
@@ -95,7 +96,13 @@ def test_dataset(comparison, predict):
 
 
 if __name__ == '__main__':
-    X = noncrime_dataset(15000, True)
+    X = None
+    with open('ae.data', 'rb') as f:
+        X = pickle.load(f)
+        np.random.shuffle(X)
+
+    # X = noncrime_dataset(15000, True)
+
     X = X / np.linalg.norm(X)
     # X, throwaway = train_test_split(X, 0.9)
     X, X_test = train_test_split(X, test_size=0.1)
@@ -106,7 +113,7 @@ if __name__ == '__main__':
 
     model = train_encoder(optimiser, X_train, X_val)
 
-    tests = load_crime_data('ewhore')
+    tests = load_crime_data('rat')
 
     # model = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
     # model.fit(X_train)
@@ -126,12 +133,13 @@ if __name__ == '__main__':
     # print(y_pred_test[y_pred_test == 1].shape)
 
     # print(tests.shape)
-    # print(y_tests[y_tests == 1].shape)
+    # print(y_tests[y_tests == -1].shape)
 
     super_test = []
     for thread in [5881918, 1262128, 2804572, 1065115]:
         posts = conn.get_posts_from_thread(thread)
         for p in posts:
+            print(process_text(p[1]))
             super_test.append(d2v_model.infer_vector(process_text(p[1])))
     super_test = np.stack(super_test)
     super_test = super_test / np.linalg.norm(super_test)
@@ -139,9 +147,12 @@ if __name__ == '__main__':
     greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
     lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
 
-    nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
-    c_correct, c_total = greater_comparison(tests, 0.0001)
+    nc_correct, nc_total = lesser_comparison(X_test, 0.000001)
+    print("Non-crime data accuracy: " + str(nc_correct/nc_total))
+    c_correct, c_total = greater_comparison(tests, 0.000001)
+    print("Crime data accuracy: " + str(c_correct/c_total))
     s_correct, s_total = lesser_comparison(super_test, 0.0001)
+    print("Non-crime from other sources accuracy: " + str(s_correct/s_total))
 
     print("Super Accuracy: " + str(s_correct/s_total))
     print("Accuracy: " + str((nc_correct+c_correct)/(nc_total+c_total)))

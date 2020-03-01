@@ -47,6 +47,12 @@ class db:
             print(len(results))
         return results
 
+    def get_posts_from_forum(self, fid, n):
+        query = '''SELECT DISTINCT p."Content" FROM "Post" p INNER JOIN "Thread" t ON t."IdThread" = p."Thread" WHERE t."Site" = 0 AND t."Forum" = ''' + \
+            str(fid) + ''' AND LENGTH(p."Content") > 200 LIMIT ''' + str(n)
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
     def close_connection(self):
         if(self.connection):
             self.cursor.close()

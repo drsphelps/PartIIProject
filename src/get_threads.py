@@ -2,6 +2,7 @@ import psycopg2
 from utils.db import db
 from post_cleaning import process_text, remove_tags
 
+
 def get_actors():
     actors = []
     with open('key_actors.data', 'r') as f:
@@ -39,11 +40,12 @@ def run_query():
 def get_from_keyword(word, n):
     conn = db()
     ts = []
-    ps = [] 
+    ps = []
 
-    query = '''SELECT * FROM "Thread" WHERE "Heading" like '%''' + word + '''%' AND "Site" = 0 AND "NumPosts" < 200 ORDER BY "NumPosts" DESC'''
+    query = '''SELECT * FROM "Thread" WHERE "Heading" like '%''' + word + \
+        '''%' AND "Site" = 0 AND "NumPosts" < 200 ORDER BY "NumPosts" DESC'''
     threads = conn.run_query(query)
-    
+
     for thread in threads:
         ts.append(thread[0])
 
@@ -56,7 +58,7 @@ def get_from_keyword(word, n):
                 added += 1
         if len(ps) >= n:
             break
-    
+
     conn.close_connection()
 
     return ps
@@ -67,31 +69,32 @@ def build_dataset(keywords):
 
     keyword = "'.*(" + '|'.join(keywords) + ").*'"
 
-    query = '''SELECT "IdThread" FROM "Thread" WHERE LOWER("Heading") ~ ''' + keyword + ''' AND "Site" = 0 AND "NumPosts" < 200'''
+    query = '''SELECT "IdThread" FROM "Thread" WHERE LOWER("Heading") ~ ''' + \
+        keyword + ''' AND "Site" = 0 AND "NumPosts" < 200'''
     threads = conn.run_query(query)
-    
+
     length = 0
 
+    print(len(threads))
     for thread in threads:
         thread_id = thread[0]
 
         posts = conn.get_posts_from_thread(thread_id)
-        
+
         for post in posts:
             pp = process_text(post[1])
             if len(pp) > 5:
-                if "stresser" not in pp:
-                    print(remove_tags(post[1]))
-                    add = input()
+                print(remove_tags(post[1]))
+                add = input()
 
+                with open(keywords[0]+"_training.data", 'a+') as f:
+                    if add == 'y':
+                        f.write(str(post[0]) + '\n')
 
-                    with open(keywords[0]+"_training.data", 'a+') as f:
-                        if add == 'y':
-                            f.write(str(post[0]) +'\n')
-                
-                    with open(keywords[0]+"_training.data", 'r') as f:
-                        length = len(f.readlines())
+                with open(keywords[0]+"_training.data", 'r') as f:
+                    length = len(f.readlines())
 
-                    if length > 500:
-                        print("All done")
-                    print("==================================================================================" + str(length) + "\n")
+                if length > 500:
+                    print("All done")
+                print(
+                    "==================================================================================" + str(length) + "\n")
