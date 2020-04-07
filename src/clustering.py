@@ -9,9 +9,6 @@ from sklearn.manifold import TSNE
 import pickle
 
 
-d2v_model = Doc2Vec.load('data/models/2.modelFile')
-
-
 def lengths(arr):
     l = []
     for a in arr:
@@ -48,6 +45,7 @@ class KMeansPoint():
 
 class ConstrainedKMeans():
     LOAD = True
+    d2v_model = Doc2Vec.load('data/models/2.modelFile')
 
     def __init__(self, k=3, metric=(lambda x, y: np.linalg.norm(x-y)),
                  tolerance=0.0001, max_iterations=500, max_violations=100):
@@ -160,7 +158,6 @@ class ConstrainedKMeans():
             for i in range(0, 500):
                 with open('data/' + folder + '_data/' + str(i) + '.data', 'r') as f:
                     posts.append(f.read())
-            print("collected labelled")
             return posts
 
         def collect_unlabelled_data(forum):
@@ -169,7 +166,6 @@ class ConstrainedKMeans():
             for post in conn.get_posts_from_forum(forum, number_unlabelled):
                 posts.append(post[0])
             conn.close_connection()
-            print("collected unlabelled")
             return posts
 
         # Get labelled data
@@ -182,7 +178,6 @@ class ConstrainedKMeans():
         if ConstrainedKMeans.LOAD:
             with open("cluster.data", "rb") as f:
                 U_train = pickle.load(f)
-            print("collected unlabelled")
         else:
             unlabelled_e = collect_unlabelled_data(170)
             unlabelled_s = collect_unlabelled_data(92)
@@ -211,17 +206,17 @@ class ConstrainedKMeans():
             test_size + [2] * test_size + [3] * test_size
 
         for i in range(len(X_train)):
-            X_train[i] = KMeansPoint(d2v_model.infer_vector(
+            X_train[i] = KMeansPoint(ConstrainedKMeans.d2v_model.infer_vector(
                 process_text(X_train[i])), constraint=constraints[i])
         X_train = np.stack(X_train)
 
         for i in range(len(U_train)):
-            U_train[i] = KMeansPoint(d2v_model.infer_vector(
+            U_train[i] = KMeansPoint(ConstrainedKMeans.d2v_model.infer_vector(
                 process_text(U_train[i])), -1)
         U_train = np.stack(U_train)
 
         for i in range(len(X_test)):
-            X_test[i] = KMeansPoint(d2v_model.infer_vector(
+            X_test[i] = KMeansPoint(ConstrainedKMeans.d2v_model.infer_vector(
                 process_text(X_test[i])), constraint=test_constraints[i])
         X_test = np.stack(X_test)
 
@@ -235,14 +230,24 @@ class ConstrainedKMeans():
             4, lambda x, y: py_ang(x, y), max_violations=500)
 
         if km.train(X_train, U_train):
-            print("Trained")
-            print("Accuracy")
             correct = 0.
             for test in range(X_test.shape[0]):
                 if km.pred(X_test[test]):
                     correct += 1.
-            print(correct / X_test.shape[0])
             return correct / X_test.shape[0]
+
+    @staticmethod
+    def cross_validation():
+        n = 10.
+        accuracy = 0.
+        for _ in range(int(n)):
+            accuracy += ConstrainedKMeans.test()
+        return accuracy/n
+
+    @staticmethod
+    def d2v_train(model):
+        ConstrainedKMeans.d2v_model = model
+        return ConstrainedKMeans.cross_validation()
 
 
 def main():

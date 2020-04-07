@@ -49,6 +49,33 @@ class get_threads():
         conn.close_connection()
 
     @staticmethod
+    def get_from_keyword(word, n):
+        conn = db()
+        ts = []
+        ps = []
+
+        query = '''SELECT * FROM "Thread" WHERE "Heading" like '%''' + word + \
+            '''%' AND "Site" = 0 AND "NumPosts" < 200 ORDER BY "NumPosts" DESC'''
+        threads = conn.run_query(query)
+
+        for thread in threads:
+            ts.append(thread[0])
+
+        for t in ts:
+            posts = conn.get_posts_from_thread(t)
+            added = 0
+            for post in posts:
+                if len(ps) < n and len(post[1]) > 200:
+                    ps.append(post)
+                    added += 1
+            if len(ps) >= n:
+                break
+
+        conn.close_connection()
+
+        return ps
+
+    @staticmethod
     def build_dataset(keywords):
         """
         Gets threads that include a specific keyword and creates a command line interface to add them to the dataset or not

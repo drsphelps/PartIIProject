@@ -1,9 +1,9 @@
 import psycopg2
 from utils.db import db
 from post_cleaning import process_text
-from get_threads import get_from_keyword
 from utils.MonitorCallback import MonitorCallback
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+from clustering import ConstrainedKMeans
 from utils.get_training import get_db_records
 from datetime import datetime
 import logging
@@ -11,7 +11,7 @@ import os
 import time
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    filename=datetime.now().strftime('logs/%H%M%d%m%Y.log'),
+                    filename=datetime.now().strftime('logs/%d%m%Y%H%M.log'),
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -27,9 +27,9 @@ def preprocess_records():
     return processed
 
 
-def build_model():
+def build_model(vs=100):
     monitor = MonitorCallback('1')
-    return Doc2Vec(seed=0, dm=0, vector_size=100,
+    return Doc2Vec(seed=0, dm=0, vector_size=vs,
                    min_count=100, epochs=10, workers=9,
                    hs=1, window=10, callbacks=[monitor])
 
@@ -54,5 +54,20 @@ def create_doc2vec_model():
     model = Doc2Vec.load('1.modelFile')
 
 
+def train_doc2vec():
+    vss = range(100, 300, 20)
+    r = preprocess_records()
+    results = {}
+
+    for v in vss:
+        model = build_model(v)
+        model.build_vocab(r)
+        logging.info("Vocabulary Built")
+        model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
+        results[v] = ConstrainedKMeans.d2v_train(model)
+
+    return results
+
+
 if __name__ == "__main__":
-    create_doc2vec_model()
+    print(train_doc2vec())
