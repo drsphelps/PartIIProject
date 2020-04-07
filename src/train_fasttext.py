@@ -32,7 +32,7 @@ def create_fasttext_model():
 
 def test_model():
     model = Word2Vec.load('1.modelFile')
-    print(model.most_similar(['rat']))
+    print(model.most_similar(['pack']))
 
 
 if __name__ == "__main__":

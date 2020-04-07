@@ -1,5 +1,6 @@
 import logging
 from gensim.models.callbacks import CallbackAny2Vec
+from gensim.test.utils import get_tmpfile
 
 
 class MonitorCallback(CallbackAny2Vec):

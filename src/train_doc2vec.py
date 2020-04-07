@@ -4,7 +4,6 @@ from post_cleaning import process_text
 from get_threads import get_from_keyword
 from utils.MonitorCallback import MonitorCallback
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-from gensim.test.utils import get_tmpfile
 from utils.get_training import get_db_records
 from datetime import datetime
 import logging

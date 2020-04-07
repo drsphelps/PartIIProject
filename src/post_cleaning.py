@@ -25,5 +25,8 @@ def remove_tags(text):
 
 
 def process_text(text):
-    return(remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text)))))
+    return remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text))))
+
+def process_text_s(text):
+    return ' '.join(process_text(text))
 
