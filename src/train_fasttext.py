@@ -23,18 +23,18 @@ def create_fasttext_model():
 
     model = build_model()
     model.build_vocab(r)
-    model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
+    model.train(r, total_examples=model.corpus_count, epochs=10)
 
-    model.save('1.modelFile')
+    model.save('1ft.modelFile')
 
-    model = FastText.load('1.modelFile')
+    model = FastText.load('1ft.modelFile')
 
 
 def test_model():
-    model = Word2Vec.load('1.modelFile')
+    model = Word2Vec.load('1ft.modelFile')
     print(model.most_similar(['pack']))
 
 
 if __name__ == "__main__":
-    test_model()
-    # create_fasttext_model()
+    create_fasttext_model()
+    # test_model()

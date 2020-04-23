@@ -20,10 +20,8 @@ conn = db()
 
 def build_encoder():
     input_layer = Input(shape=(100, ))
-    L0 = Dense(32, activation="tanh")(input_layer)
-    L1 = Dense(8, activation="tanh")(L0)
-    L2 = Dense(32, activation="tanh")(L1)
-    output = Dense(100, activation="tanh")(L2)
+    L0 = Dense(32, activation="sigmoid")(input_layer)
+    output = Dense(100, activation="sigmoid")(L0)
 
     model = Model(inputs=input_layer, outputs=output)
     return model
@@ -32,12 +30,12 @@ def build_encoder():
 def train_encoder(optimiser, X_train, X_val):
     model = build_encoder()
     model.compile(optimizer=optimiser,
-                  loss='mean_squared_error',
+                  loss='mse',
                   metrics=['mean_squared_error'])
 
     model.fit(X_train, X_train,
-              epochs=100,
-              batch_size=int(X_train.shape[0]),
+              epochs=10,
+              batch_size=64,
               shuffle=True,
               validation_data=(X_val, X_val),
               verbose=1)
@@ -66,11 +64,12 @@ def load_dataset():
     return X
 
 
-def load_crime_data(folder):
+def load_crime_data():
     tests = []
-    for i in range(0, 500):
-        with open('data/' + folder + '_data/' + str(i) + '.data', 'r') as f:
-            tests.append(d2v_model.infer_vector(process_text(f.read())))
+    for folder in ['crypter', 'stresser', 'rat', 'ewhore']:
+        for i in range(0, 500):
+            with open('data/' + folder + '_data/' + str(i) + '.data', 'r') as f:
+                tests.append(d2v_model.infer_vector(process_text(f.read())))
 
     tests = np.stack(tests)
     tests = tests / np.linalg.norm(tests)
@@ -86,7 +85,8 @@ def test_dataset(comparison, predict):
             example = dataset[i:i+1, :]
             mse = np.mean(
                 np.power(example - predict(example), 2), axis=1)
-            # print(mse)
+            print(mse)
+
             if comparison(mse, limit):
                 correct += 1.0
             total += 1.0
@@ -113,7 +113,13 @@ if __name__ == '__main__':
 
     model = train_encoder(optimiser, X_train, X_val)
 
-    tests = load_crime_data('rat')
+    import tensorflow as tf
+    tf.keras.utils.plot_model(
+        model, to_file='model.png', show_shapes=True, show_layer_names=True,
+        rankdir='TB'
+    )
+
+    tests = load_crime_data()
 
     # model = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
     # model.fit(X_train)
@@ -147,11 +153,11 @@ if __name__ == '__main__':
     greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
     lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
 
-    nc_correct, nc_total = lesser_comparison(X_test, 0.000001)
+    nc_correct, nc_total = lesser_comparison(X_test, 0.00004)
     print("Non-crime data accuracy: " + str(nc_correct/nc_total))
-    c_correct, c_total = greater_comparison(tests, 0.000001)
+    c_correct, c_total = greater_comparison(tests, 0.00004)
     print("Crime data accuracy: " + str(c_correct/c_total))
-    s_correct, s_total = lesser_comparison(super_test, 0.0001)
+    s_correct, s_total = lesser_comparison(super_test, 0.00004)
     print("Non-crime from other sources accuracy: " + str(s_correct/s_total))
 
     print("Super Accuracy: " + str(s_correct/s_total))

@@ -4,7 +4,7 @@ from gensim.utils import simple_preprocess
 
 
 def remove_stops(text):
-    return [word for word in text if ((word not in stopwords.words('english') and (len(word) >= 3)))]
+    return [word for word in text if word not in stopwords.words('english')]
 
 
 def remove_non_ascii(text):
@@ -25,8 +25,8 @@ def remove_tags(text):
 
 
 def process_text(text):
-    return remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text))))
+    return remove_stops(simple_preprocess(remove_tags(remove_non_ascii(text)), min_len=3))
+
 
 def process_text_s(text):
     return ' '.join(process_text(text))
-
