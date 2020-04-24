@@ -1,7 +1,7 @@
 from gensim.models import TfidfModel
 from gensim.corpora import Dictionary
-from utils.get_training import get_db_records
-from post_cleaning import process_text
+from get_training import get_db_records
+from utils.post_cleaning import process_text
 
 
 def preprocess_tfidf():

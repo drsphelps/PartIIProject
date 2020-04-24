@@ -1,8 +1,7 @@
 import tensorflow as tf
-from IPython.display import SVG
 from nltk.corpus import stopwords
 from utils.db import db
-from utils.get_training import noncrime_dataset, crime_dataset
+from get_training import noncrime_dataset, crime_dataset
 from utils.post_cleaning import process_text_s as process_text
 from sampling import Sampling
 import numpy as np
@@ -10,14 +9,11 @@ import pickle
 from gensim.models import Word2Vec
 
 from collections import Counter
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline
 from tensorflow.keras import regularizers, initializers, optimizers, callbacks
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
 from keras.utils.np_utils import to_categorical
-from keras.optimizers import adam
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Input, Embedding, LSTM, Dense, Dropout, GlobalMaxPool1D
 from tensorflow.keras.models import Model
 
@@ -73,7 +69,7 @@ class RNN:
         self.y_val = labels[-num_validation_samples:]
 
     def build_embeddings(self):
-        model = Word2Vec.load('1ft.modelFile')
+        model = Word2Vec.load('data/models/fasttext.modelFile')
 
         embedding_matrix = np.random.random(
             (len(self.tokenizer.word_index) + 1, EMBEDDING_DIM))
@@ -104,7 +100,7 @@ class RNN:
     def __compile_model(self, sequence_input, preds):
         model = Model(sequence_input, preds)
 
-        optimiser = adam(learning_rate=self.learning_rate, beta_1=0.9,
+        optimiser = Adam(learning_rate=self.learning_rate, beta_1=0.9,
                          beta_2=0.999, amsgrad=False)
 
         model.compile(loss='binary_crossentropy',

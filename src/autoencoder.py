@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from gensim.models import Doc2Vec
 from utils.MonitorCallback import MonitorCallback
-from post_cleaning import process_text
+from utils.post_cleaning import process_text
 from utils.db import db
 from keras.layers import Input, Dense
 from keras.models import Model

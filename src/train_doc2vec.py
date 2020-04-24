@@ -1,11 +1,12 @@
 import psycopg2
 from utils.db import db
-from post_cleaning import process_text
+from utils.post_cleaning import process_text
 from utils.MonitorCallback import MonitorCallback
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from clustering import ConstrainedKMeans
-from utils.get_training import get_db_records
+from get_training import get_db_records
 from datetime import datetime
+import pickle
 import logging
 import os
 import time
@@ -27,15 +28,16 @@ def preprocess_records():
     return processed
 
 
-def build_model(vs=100):
+def build_model(vs=120, d=0, h=0, w=11):
     monitor = MonitorCallback('1')
-    return Doc2Vec(seed=0, dm=0, vector_size=vs,
-                   min_count=100, epochs=10, workers=9,
-                   hs=1, window=10, callbacks=[monitor])
+    return Doc2Vec(seed=0, dm=d, vector_size=vs,
+                   min_count=50, epochs=10, workers=8,
+                   hs=h, window=w, callbacks=[monitor])
 
 
 def create_doc2vec_model():
-    r = preprocess_records()
+    with open("/mnt/d/training_data.data", "rb") as f:
+        r = pickle.load(f)
 
     logging.info("Data collected")
 
@@ -45,29 +47,33 @@ def create_doc2vec_model():
     logging.info("Vocabulary Built")
     model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
 
-    model.delete_temporary_training_data(
-        keep_doctags_vectors=True, keep_inference=True)
-
-    model.save('1.modelFile')
+    model.save('word2vec.modelFile')
+    model.save('data/models/word2vec.modelFile')
     logging.info("Completed")
 
     model = Doc2Vec.load('1.modelFile')
 
 
 def train_doc2vec():
-    vss = range(100, 300, 20)
-    r = preprocess_records()
+    # r = preprocess_records()
+    with open("/mnt/d/training_data.data", "rb") as f:
+        r = pickle.load(f)
+
+    logging.info("Loaded training data")
     results = {}
 
-    for v in vss:
-        model = build_model(v)
-        model.build_vocab(r)
-        logging.info("Vocabulary Built")
-        model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
-        results[v] = ConstrainedKMeans.d2v_train(model)
+    model = build_model()
+    model.build_vocab(r)
+    logging.info("Vocabulary Built")
+    model.train(r, total_examples=model.corpus_count, epochs=model.epochs)
+    model.delete_temporary_training_data(
+        keep_doctags_vectors=True, keep_inference=True)
+    for i in range(0, 10):
+        results[i] = ConstrainedKMeans.d2v_train(model)
+        print(results)
 
     return results
 
 
 if __name__ == "__main__":
-    print(train_doc2vec())
+    print(create_doc2vec_model())
