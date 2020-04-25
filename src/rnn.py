@@ -1,133 +1,144 @@
-import tensorflow as tf
 from nltk.corpus import stopwords
 from utils.db import db
-from get_training import noncrime_dataset, crime_dataset
 from utils.post_cleaning import process_text_s as process_text
-from sampling import Sampling
 import numpy as np
 import pickle
 from gensim.models import Word2Vec
+from sampling import Sampling
 
-from collections import Counter
 from tensorflow.keras import regularizers, initializers, optimizers, callbacks
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
 from keras.utils.np_utils import to_categorical
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Input, Embedding, LSTM, Dense, Dropout, GlobalMaxPool1D
+from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
-import os
-os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin/'
 MAX_NB_WORDS = 100000
 MAX_SEQUENCE_LENGTH = 200
 VALIDATION_SPLIT = 0.1
 EMBEDDING_DIM = 100
+conn = db()
 
 
-class RNN:
-
-    def __init__(self, lr=0.025, e=3, d=0.5, bs=64):
-        self.learning_rate = lr
-        self.epochs = e
-        self.dropout = d
-        self.batch_size = bs
-
-        self.collect_data()
-        self.build_embeddings()
-        self.build_model()
-
-    def collect_data(self):
-        nc = noncrime_dataset(3000, True, True)
-        c = crime_dataset()
-        X = np.concatenate((nc, c), axis=0)
-
-        # one hot vector in the form [non-crime, crime]
-        labels = np.concatenate(
-            (np.array([[1, 0]] * nc.shape[0]), np.array([[0, 1]] * c.shape[0])), axis=0)
-
-        # Fit a tokenizer for integer representation of words
-        self.tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
-        self.tokenizer.fit_on_texts(X)
-        sequences = self.tokenizer.texts_to_sequences(X)
-
-        data = pad_sequences(sequences, padding='post',
-                             maxlen=MAX_SEQUENCE_LENGTH)
-
-        indices = np.arange(data.shape[0])
-        np.random.shuffle(indices)
-        data = data[indices]
-        labels = labels[indices]
-
-        num_validation_samples = int(VALIDATION_SPLIT*data.shape[0])
-
-        # Perform over and under sampling
-        sample = Sampling(2., .5)
-        self.x_train, self.y_train = sample.perform_sampling(
-            data[: -num_validation_samples], labels[: -num_validation_samples], [0, 1])
-        self.x_val = data[-num_validation_samples:]
-        self.y_val = labels[-num_validation_samples:]
-
-    def build_embeddings(self):
-        model = Word2Vec.load('data/models/fasttext.modelFile')
-
-        embedding_matrix = np.random.random(
-            (len(self.tokenizer.word_index) + 1, EMBEDDING_DIM))
-        for word, i in self.tokenizer.word_index.items():
-            embedding_vector = model.wv[word]
-            if embedding_vector is not None:
-                embedding_matrix[i] = embedding_vector
-        self.embedding_matrix = embedding_matrix
-
-    def build_model(self):
-        sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
-        embedding_layer = Embedding(len(self.tokenizer.word_index) + 1,
-                                    EMBEDDING_DIM,
-                                    weights=[self.embedding_matrix],
-                                    input_length=MAX_SEQUENCE_LENGTH,
-                                    trainable=False,
-                                    name='embeddings')
-        embedded_sequences = embedding_layer(sequence_input)
-        x = LSTM(60, return_sequences=True, name='lstm_layer',
-                 dropout=self.dropout, recurrent_dropout=self.dropout)(embedded_sequences)
-        x = GlobalMaxPool1D()(x)
-        x = Dense(50, activation="tanh")(x)
-        x = Dropout(self.dropout)(x)
-        preds = Dense(2, activation="softmax")(x)
-
-        self.__compile_model(sequence_input, preds)
-
-    def __compile_model(self, sequence_input, preds):
-        model = Model(sequence_input, preds)
-
-        optimiser = Adam(learning_rate=self.learning_rate, beta_1=0.9,
-                         beta_2=0.999, amsgrad=False)
-
-        model.compile(loss='binary_crossentropy',
-                      optimizer=optimiser,
-                      metrics=['accuracy'])
-
-        self.model = model
-
-    def training_loop(self):
-        print('Training progress:')
-        history = self.model.fit(self.x_train, self.y_train, epochs=self.epochs,
-                                 batch_size=self.batch_size, validation_data=(self.x_val, self.y_val))
-
-    def plot_model(self):
-        tf.keras.utils.plot_model(
-            self.model, to_file='model.png', show_shapes=True, show_layer_names=True,
-            rankdir='LR'
-        )
-
-    def classify_post(self, text):
-        text_array = np.array([text])
-
-        sequences = self.tokenizer.texts_to_sequences(text_array)
-        sequences = pad_sequences(sequences, padding='post',
-                                  maxlen=MAX_SEQUENCE_LENGTH)
-        return self.model.predict(sequences)[0]
+def noncrime_dataset(n, save, load=False):
+    def load_dataset():
+        with open('nc.data', 'rb') as f:
+            X = pickle.load(f)
+        np.random.shuffle(X)
+        return X
+    if load:
+        return load_dataset()
+    posts = []
+    for post in conn.get_noncrime_posts(n):
+        if len(process_text(post[0])) > 10:
+            posts.append(process_text(post[0]))
+    print(posts)
+    X = np.stack(posts)
+    if save:
+        with open('nc.data', 'wb') as f:
+            pickle.dump(X, f)
+    np.random.shuffle(X)
+    return X
 
 
-rnn = RNN()
-rnn.training_loop()
+def crime_dataset():
+    def load_crime_data(folder):
+        tests = []
+        for i in range(0, 500):
+            with open('data/' + folder + '_data/' + str(i) + '.data', 'r') as f:
+                tests.append(process_text(f.read()))
+        return tests
+
+    posts = []
+    for f in ['rat', 'ewhore', 'stresser', 'crypter']:
+        posts.extend(load_crime_data(f))
+    return np.stack(posts)
+
+
+nc = noncrime_dataset(3000, True, True)
+c = crime_dataset()
+X = np.concatenate((nc, c), axis=0)
+# one hot vector in the form [non-crime, crime]
+labels = np.concatenate(
+    (np.array([[1, 0]] * nc.shape[0]), np.array([[0, 1]] * c.shape[0])), axis=0)
+
+tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
+tokenizer.fit_on_texts(X)
+sequences = tokenizer.texts_to_sequences(X)
+word_index = tokenizer.word_index
+
+data = pad_sequences(sequences, padding='post', maxlen=MAX_SEQUENCE_LENGTH)
+print('Shape of data tensor:', data.shape)
+print('Shape of label tensor:', labels.shape)
+
+indices = np.arange(data.shape[0])
+np.random.shuffle(indices)
+data = data[indices]
+labels = labels[indices]
+
+num_validation_samples = int(VALIDATION_SPLIT*data.shape[0])
+sample = Sampling(2., .5)
+x_train, y_train = sample.perform_sampling(
+    data[: -num_validation_samples], labels[: -num_validation_samples], [0, 1])
+x_val = data[-num_validation_samples:]
+y_val = labels[-num_validation_samples:]
+print('Number of entries in each category:')
+print('training: ', y_train.sum(axis=0))
+print('validation: ', y_val.sum(axis=0))
+
+
+model = Word2Vec.load('1ft.modelFile')
+
+embeddings_index = {}
+embedding_matrix = np.random.random((len(word_index) + 1, EMBEDDING_DIM))
+for word, i in word_index.items():
+    embedding_vector = model.wv[word]
+    if embedding_vector is not None:
+        embedding_matrix[i] = embedding_vector
+print(" Completed!")
+
+sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
+embedding_layer = Embedding(len(word_index) + 1,
+                            EMBEDDING_DIM,
+                            weights=[embedding_matrix],
+                            input_length=MAX_SEQUENCE_LENGTH,
+                            trainable=False,
+                            name='embeddings')
+embedded_sequences = embedding_layer(sequence_input)
+x = LSTM(60, return_sequences=True, name='lstm_layer',
+         dropout=0.5, recurrent_dropout=0.5)(embedded_sequences)
+x = GlobalMaxPool1D()(x)
+x = Dense(50, activation="relu")(x)
+x = Dropout(0.5)(x)
+preds = Dense(2, activation="softmax")(x)
+# preds = Dense(2, activation='softmax')(preds)
+
+model = Model(sequence_input, preds)
+model.compile(loss='binary_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+print('Training progress:')
+history = model.fit(x_train, y_train, epochs=2,
+                    batch_size=64, validation_data=(x_val, y_val))
+
+super_test = []
+for thread in [5881918, 1262128, 2804572, 1065115]:
+    posts = conn.get_posts_from_thread(thread)
+    for p in posts:
+        print(process_text(p[1]))
+        super_test.append(process_text(p[1]))
+super_test.append(process_text(
+    "The most I've gotten out of one guy is around $450. I kept milking him (started as $30) but then he started asking to vid call me and wouldn't stop. Few days later I acted like my parents caught me and took my phone, I even acted like I'm the e-whore's father and texted the guy LMAO. He said he was just a friend from high school ***IMG***[https://hackforums.net/images/smilies/hehe.gif]***IMG*** I've already got him to buy the flight tickets in my whores name. next he's buying our accommodation in Fiji. I'm surprised he's not even indian, legit just a white American Male."))
+super_test = np.stack(super_test)
+a = np.array([
+    process_text(
+        "This isnt about crime, in fact I am just writing about rainbows and ponies, I love ponies so much and rainbows are so pretty I just want to see them everyday"),
+    process_text("I'm the best in the world, I make so much money ripping people off, buy my, they will make you a lot of money, very very quickly")])
+print(a)
+sequences = tokenizer.texts_to_sequences(super_test)
+sequences = pad_sequences(sequences, padding='post',
+                          maxlen=MAX_SEQUENCE_LENGTH)
+print(sequences)
+print(sequences[0].shape)
+print(model.predict(sequences))

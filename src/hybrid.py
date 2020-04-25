@@ -27,11 +27,11 @@ class HybridClassifier():
         return max_class
 
     def hybrid_pred(self, kmp, kmeans_model):
-        rb_class = self.__rule_based(kmp.original_text)
-        if rb_class != -1 and rb_class == kmp.constraint:
-            return rb_class
-        else:
-            return kmeans_model.pred_class(kmp)
+        # rb_class = self.__rule_based(kmp.original_text)
+        # if rb_class != -1 and rb_class == kmp.constraint:
+        #     return rb_class
+        # else:
+        return kmeans_model.pred_class(kmp)
 
     def test_hybrid_model(self):
         X_train, U_train, X_test = collect_training_data(

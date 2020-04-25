@@ -44,7 +44,7 @@ def train_encoder(optimiser, X_train, X_val):
 
 def noncrime_dataset(n, save):
     posts = []
-    for post in conn.get_noncrime_posts(15000):
+    for post in conn.get_noncrime_posts(10000):
         v = process_text(post[0])
         if len(v) > 10:
             posts.append(d2v_model.infer_vector(post))
@@ -153,11 +153,11 @@ if __name__ == '__main__':
     greater_comparison = test_dataset(lambda a, b: a > b, model.predict)
     lesser_comparison = test_dataset(lambda a, b: a < b, model.predict)
 
-    nc_correct, nc_total = lesser_comparison(X_test, 0.00004)
+    nc_correct, nc_total = lesser_comparison(X_test, 0.0001)
     print("Non-crime data accuracy: " + str(nc_correct/nc_total))
-    c_correct, c_total = greater_comparison(tests, 0.00004)
+    c_correct, c_total = greater_comparison(tests, 0.0001)
     print("Crime data accuracy: " + str(c_correct/c_total))
-    s_correct, s_total = lesser_comparison(super_test, 0.00004)
+    s_correct, s_total = lesser_comparison(super_test, 0.0001)
     print("Non-crime from other sources accuracy: " + str(s_correct/s_total))
 
     print("Super Accuracy: " + str(s_correct/s_total))
