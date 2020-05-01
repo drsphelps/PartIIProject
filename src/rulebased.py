@@ -1,19 +1,17 @@
 from classifier import Classifier
-from kmeans import KMeansClassifier
-from rulebased import RuleBasedClassifier
 
 import random
 
 
-class HybridClassifier(Classifier):
+class RuleBasedClassifier(Classifier):
 
     def __init__(self):
         super().__init__(None)
-
-    def train(self, training_data: dict, params: dict):
         self.words = [["ewhor", "e-whor"],
                       ["stresser", "booter"], [" rat "], ["crypt", "fud"]]
-        self.kmeans = KMeansClassifier.load("data/models/kmeans.modelFile")
+
+    def train(self, training_data: dict, params: dict):
+        pass
 
     def pred(self, example: list):
         max_mentions = 0
@@ -29,4 +27,4 @@ class HybridClassifier(Classifier):
         if len(max_class) == 1:
             return max_class[0]
         else:
-            return self.kmeans.pred(example)
+            return random.choice(range(0, len(self.words)))

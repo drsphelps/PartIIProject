@@ -49,7 +49,7 @@ class ConstrainedKMeans():
         self.metric = metric
         self.split = split
         self.labels = [0] * k
-        self.d2v_model = Doc2Vec.load('data/models/word2vec.modelFile')
+        self.d2v_model = Doc2Vec.load('data/models/2.modelFile')
 
     def violateConstraints(self, cluster, point):
         violated = 0
@@ -145,7 +145,7 @@ class ConstrainedKMeans():
         accuracy = 0.
         for _ in range(int(n)):
             X_train, U_train, X_test = collect_training_data(
-                ConstrainedKMeans.LOAD, self.split, self.number_unlabelled, self.d2v_model)
+                ConstrainedKMeans.LOAD, self.split, self.number_unlabelled, self.d2v_model.infer_vector)
             ConstrainedKMeans.LOAD = True
             a = self.test(X_train, U_train, X_test)
             accuracy += a
