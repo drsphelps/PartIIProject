@@ -1,8 +1,9 @@
 from classifier import Classifier
-from kmeans_point import KMeansPoint
+from utils.kmeans_point import KMeansPoint
 
 import numpy as np
 import pickle
+from sklearn import metrics
 
 
 class KMeansClassifier(Classifier):
@@ -74,17 +75,27 @@ class KMeansClassifier(Classifier):
                 break
 
     def pred(self, example):
-        embedding = self.embedding_model.infer_vector(example[0])
+        embedding = self.embedding_model.infer_vector(example)
         distances = [self.metric(embedding, self.centroids[centroid])
                      for centroid in self.centroids]
-        return self.labels[distances.index(min(distances))] == example[1]
+        return self.labels[distances.index(min(distances))]
+
+    def pred_full(self, example):
+        embedding = self.embedding_model.infer_vector(example)
+        distances = [self.metric(embedding, self.centroids[centroid])
+                     for centroid in self.centroids]
+        return distances
 
     def test(self, data):
         super().test(data)
-        print(metrics.classification_report(
-            self.groundtruths, self.predictions, digits=3))
+        self.present_results()
 
     @staticmethod
     def load(filename):
         with open(filename, "rb") as f:
             return pickle.load(f)
+
+    @staticmethod
+    def save(obj, filename):
+        with open(filename, "wb") as f:
+            pickle.dump(obj, f)

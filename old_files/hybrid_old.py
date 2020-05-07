@@ -1,6 +1,6 @@
 from clustering import ConstrainedKMeans
 from sklearn import metrics
-from get_training import collect_training_data
+from utils.get_training import collect_training_data
 from utils.MonitorCallback import MonitorCallback
 from gensim.models import TfidfModel
 from gensim.corpora import Dictionary

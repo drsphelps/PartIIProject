@@ -3,8 +3,8 @@ from utils.db import db
 from gensim.models import Doc2Vec
 from utils.MonitorCallback import MonitorCallback
 from utils.post_cleaning import process_text
-from get_training import collect_training_data
-from kmeans_point import KMeansPoint
+from utils.get_training import collect_training_data
+from utils.kmeans_point import KMeansPoint
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.manifold import TSNE

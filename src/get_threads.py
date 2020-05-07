@@ -1,6 +1,6 @@
 import psycopg2
 from utils.db import db
-from post_cleaning import process_text, remove_tags
+from utils.post_cleaning import process_text, remove_tags
 
 
 class get_threads():

@@ -1,7 +1,7 @@
 from gensim.models import TfidfModel
 from gensim.corpora import Dictionary
 from gensim import similarities
-from get_training import get_db_records
+from utils.get_training import get_db_records
 from utils.post_cleaning import process_text
 
 import pickle

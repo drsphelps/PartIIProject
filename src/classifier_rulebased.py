@@ -1,6 +1,7 @@
 from classifier import Classifier
 
 import random
+from sklearn import metrics
 
 
 class RuleBasedClassifier(Classifier):
@@ -28,3 +29,7 @@ class RuleBasedClassifier(Classifier):
             return max_class[0]
         else:
             return random.choice(range(0, len(self.words)))
+
+    def test(self, data):
+        super().test(data)
+        self.present_results()

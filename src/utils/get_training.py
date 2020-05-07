@@ -1,6 +1,6 @@
 from utils.db import db
 from utils.post_cleaning import process_text_s, process_text
-from kmeans_point import KMeansPoint
+from utils.kmeans_point import KMeansPoint
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pickle
@@ -44,11 +44,12 @@ def noncrime_dataset(n, save=False, load=False, string=False):
         return load_dataset()
 
     posts = []
-    for post in conn.get_noncrime_posts(n*2):
+    for post in conn.get_noncrime_posts(n):
         processed = pt(post[0])
         if len(processed) > 10:
             p = (processed, -1)
             posts.append(p)
+    print(len(posts))
     conn.close_connection()
     X = np.stack(posts)
 
@@ -78,7 +79,7 @@ def crime_dataset(string=False):
     Loads the dataset of crime posts
     """
     posts = []
-    for i, f in enumerate(['rat', 'ewhore', 'stresser', 'crypter']):
+    for i, f in enumerate(['ewhore', 'stresser', 'rat', 'crypter']):
         posts.extend(load_crime_data(f, i, string))
     return np.stack(posts)
 
@@ -86,6 +87,7 @@ def crime_dataset(string=False):
 def collect_unlabelled_data(forum, number, string=False):
     conn = db()
     posts = []
+    pt = process_text_s if string else process_text
     for post in conn.get_posts_from_forum(forum, number):
         p = (pt(post[0]), -1)
         posts.append(p)
