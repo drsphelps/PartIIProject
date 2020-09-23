@@ -64,6 +64,7 @@ class Sampling():
 
     def perform_sampling(self, data, labels, min_label=None):
         maj_label = self.__find_maj_class(labels)
+        print(maj_label)
         maj_data = []
         min_data = []
         other_data = []

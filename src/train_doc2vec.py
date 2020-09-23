@@ -4,7 +4,7 @@ from utils.post_cleaning import process_text
 from utils.MonitorCallback import MonitorCallback
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from clustering import ConstrainedKMeans
-from get_training import get_db_records
+from utils.get_training import get_db_records
 from datetime import datetime
 import pickle
 import logging

@@ -1,5 +1,5 @@
 from gensim.models import FastText, Word2Vec
-from get_training import get_db_records
+from utils.get_training import get_db_records
 from utils.post_cleaning import process_text
 import pickle
 import logging

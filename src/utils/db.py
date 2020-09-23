@@ -62,7 +62,6 @@ class db:
             self.cursor.execute(query)
             result = self.cursor.fetchall()
             results.extend(result)
-            print(len(results))
         return results
 
     def get_posts_from_forum(self, fid, n):

@@ -1,0 +1,686 @@
+% Template for a Computer Science Tripos Part II project dissertation
+\documentclass[12pt,a4paper,twoside,openright]{report}
+\usepackage[pdfborder={0 0 0}]{hyperref}    % turns references into hyperlinks
+\usepackage[margin=25mm]{geometry}  % adjusts page layout
+\usepackage{graphicx}  % allows inclusion of PDF, PNG and JPG images
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage[noend]{algpseudocode}
+\usepackage{docmute}   % only needed to allow inclusion of proposal.tex
+\usepackage[toc,page]{appendix}
+
+\raggedbottom                           % try to avoid widows and orphans
+\sloppy
+\clubpenalty1000%
+\widowpenalty1000%
+
+\renewcommand{\baselinestretch}{1.1}    % adjust line spacing to make
+                                        % more readable
+
+\begin{document}
+
+\chapter{Introduction}
+This project implements a system for classifying what type of crime is being discussed in posts from CrimeBB, a dataset of posts scraped from a variety of underground forums (forums which allow criminals to trade in services and knowledge). The system is composed of two models:
+\begin{itemize}
+    \item A model to decide whether a post discusses crime or not, which was implemented using a Recurrent Neural Network (RNN).
+    \item A constrained k-means clustering model to decide which crime type is discussed in posts that are flagged as discussing crime in our first model.
+\end{itemize}
+We also explore whether combining the second model with a rule-based one, which classifies based on a set of keywords, can improve performance. All of the core goals of the project described in the project proposal (Appendix \ref{appendix:proposal}) were met. 
+
+\section{Motivation}
+Underground forums provide spaces for the transfer of knowledge and the trading of illicit services and tools. The actors in these forums range from seasoned cybercriminals to newcomers interested in black hat activities. Having a richer understanding of the markets for knowledge and products, which are pivotal to cybercrime activity will allow more effective countermeasures to be developed, as well as providing an opportunity to develop methods of preventing newcomers becoming further involved in cybercrime. 
+\newline
+
+CrimeBB \cite{crimebb} is a dataset that contains over 80 million posts from 20 different underground forums, thus, it is a useful dataset for those studying cybercrime and cybercriminals. However, as the dataset is so large it can often be hard to find sets of posts about a specific crime type, such as E-Whoring. Which can make the job of the researcher more difficult, as a lot of time has to be spent searching through and reading posts to be able to manually classify them. Being able to automatically classify the posts which discuss crime based on what crime type they contain will reduce the amount of time researchers have to spend searching for relevant data, allowing for more research to be done 
+
+\section{Challenges}
+The biggest challenge to working with the CrimeBB dataset is the size and scope of the data. This is not just in terms of the number of posts and sites that are contained within the dataset, but also the number of different crime types that are discussed within the forums. In order to make this project feasible, it will focus just on the largest site in the dataset, HackForums, and train the model to be able to distinguish between 4 types of cybercrime, introduced and discussed in \S\ref{section:crimetypes}. This will restrict the size of the data, whilst still allowing us to properly evaluate the system across multiple crime types on a large dataset.
+\newline
+
+Another challenge faced when working with CrimeBB is the non-standard language used throughout the forums \cite{intent} \cite{portnoff2017tools}. Online forums develop their own set of specific jargon that is not easily understood by most humans, and is not found in other corpora. This means that standard 'out-of-the-box' tools for natural language processing, such as pre-trained models for generating word embeddings do not perform sufficiently well in this domain and so cannot be used for NLP processing in this project.
+
+\section{Related Work}
+Similar work has been done in Caines et al. \cite{intent} to automatically classify posts in CrimeBB based on the function and intent of the posts using statistical, rule-based and hybrid models, showing that machine learning analysis can be used to classify posts in this dataset. Due to the success of the hybrid model observed in Caines et al. a rule-based and hybrid model will be investigated in this project and the results compared with the statistical model. This project differs in it's choice of statistical models, whereas Caines et al. used SVM, XGBoost, and a linear model in their implementation, a RNN and a constrained k-means clustering model are implemented in this project. 
+
+The implementation for the RNN model is based around the work in Lai et al. \cite{lai2015recurrent}, that showed that LSTM cells followed by a global pooling layer can be used effectively to classify text data. Using this model simple LSTM model as a basis, layers are added and the model is tuned to give the best performance on the CrimeBB data. 
+
+
+
+
+
+
+
+
+
+\chapter{Preparation}
+In this chapter we initially discuss the relevant knowledge needed to understand the project, and go on to talk about the planning phase.
+
+\section{Underground Forums}
+Underground forums provide a space for trading the knowledge and tools needed to perform a range of cybercriminal activities, and, in recent years, many high profile cybercrime cases have been directly linked to them. For example, in September 2016 the source code for the Mirai Malware \cite{203628} was released on HackForums, the forum focused on by this project, leading to several botnets being created and used for DDoS attacks and the mining of cryptocurrency \cite{mirai-cc}. 
+
+\subsection{Forum Structure}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{1\textwidth}
+        \centering\textbf{
+        \includegraphics[width=0.8\linewidth]{hf}}
+        \caption{Homepage of HackForum.net, showing some of the sub-forums, and their respective thread and post counts}\label{Fig:Data1}
+        \label{fig:slam}
+    \end{minipage}\hfill
+\end{figure}
+HackForums does not only contain discussion pertaining to cybercrime, but also to many general topics, such as politics, entertainment and sport. It is therefore broken down into sub-forums, each focusing on a specific area, as well as a general sub-forum,``The Lounge", where any topic can be discussed. Within each sub-forum users can create threads, either to ask questions, sell tools/guides, or start discussions, which other users can then create posts within. A common feature of these forums is the ability to cite other posts from the thread within your post, this allows users to effectively reply specifically to a certain post. 
+
+\subsection{Crime Types} \label{section:crimetypes}
+In this section a brief overview of the crime types, for which data will be collected and posts classified into, will be given. Understanding the crime types involved, and their respective inter-class and within-class variabilities, will allow for better evaluation of the classifier developed.
+
+\subsubsection{Ewhoring}
+Ewhoring \cite{ewhoring} refers to a social engineering technique, where through the impersonation of a sexual partner, the perpetrator will request money from victims in exchange for sexual images, videos and other virtual sexual encounters. Packs, containing images and videos of the people being impersonated, are traded on underground forums, along with guides in how to best use the images and videos, how to choose victims, as well as how to make maximum profit from encounters. 
+
+\subsubsection{Crypters}
+Crypters are software which can be used to encrypt malware so that it is harder to detect by antivirus programs, presenting the program as harmless until it is installed.
+
+\subsubsection{Remote Administration Tools (RATs)}
+RATs are a type of malware that allow an attacker to take control of a computer remotely, giving them control of the entire system. RATs, as well as other malware, are commonly used in conjunction with a crypter by the attacker, so that it can bypass antivirus programs on the victims computer. 
+
+\subsubsection{Stressers and Booters}
+Stressers are tools which can be legitimately used to stress test a persons own servers and networks, by sending many requests to an endpoint within a short period of time. However, stressers can be used illegally to perform DDoS attacks on victims and many cybercriminals have set up `Booters' to provide DDoS-as-a-service, by which people can pay to have a site of their choice DDoSed.
+
+
+\section{Neural Networks}
+This section will give a general overview of the theory behind neural networks, as well as the different types of layers used in networks throughout the project. Implementation details will be discussed in Chapter \ref{chapter:implementation}.
+
+\subsection{The Perceptron}
+Neural networks are composed of layers of perceptrons. Each perceptron takes a input vector $\textbf{x}^T = [x_1  x_2  ...  x_n]$ and has a set of weights $\textbf{w}^T = [w_1  w_2  ...  w_n]$ which it can use to calculate an output vector $\textbf{z}$ using the following formula:
+\begin{equation}
+    \label{equation:perceptron}
+    \textbf{z} = \sigma(\textbf{w}\textbf{x}^T) = \sigma(\sum_i w_i x_i)
+\end{equation}
+ 
+We can also add a bias term to each of the perceptrons, which is not related to the input value, which allows a trainable constant to modify the output. 
+\begin{equation}
+    \label{equation:perceptron2}
+    \textbf{z} = \sigma(\sum_i w_i x_i) + b
+\end{equation}
+ 
+
+ 
+We can chain together multiple perceptrons by connecting the outputs a subset of our perceptrons to the inputs of another subset. A layer is a group of perceptrons at the same depth in the network that operate together. As well as the output layer, networks can have any number of hidden layers, whose output is not visible, and who feed into other layers in the network.
+
+\subsection{Activation Functions}
+The function $\sigma$ used in equation \ref{equation:perceptron} is known as an activation function. It allows the perceptron to learn more complex functions than it could learn using the linear operation of the weighted sum, by passing the weighted sum through a non-linear function. Any $\mathbb{R} \rightarrow \mathbb{R} $ function can be used as an activation function, but there are some choices that are commonly used:
+\begin{itemize}
+    \item Sigmoid Function: $\sigma (x) = \frac{1}{(1+e^{-x})}$
+    \item Hyperbolic Tangent Function: $\sigma (x) = \tanh(x)$
+    \item Rectified Linear Unit (ReLU) : $\sigma (x) = \max(0, x)$
+\end{itemize}
+We can see the behaviour of these popular activation functions in Figure \ref{figure:activations}
+
+\subsection{Training Neural Networks}
+Training neural networks is the process of tuning the parameters within the network so that it can better approximate the desired function. This set of parameters is composed of the weights and biases for each perceptron that makes up part of the network. These are initialized with some specified method and then tuned by giving the network training examples.
+\newline
+ 
+This training data is composed of a large number of examples of the form $\langle \mathbf{x}, \mathbf{y} \rangle$, where $\mathbf{x}$ is the input vector and $\mathbf{y}$ is the desired output vector. When given $\mathbf{x}$, the network will output a vector $\mathbf{y^\prime}$, as its estimate for $\mathbf{y}$. We can then use a loss function $\mathcal{L}(\mathbf{y}, \mathbf{y^\prime})$ to estimate the error between the output produced and the desired output. Many different loss functions can be used and this choice can have a large effect on performance.
+\newline
+ 
+The training data is split up into batches before being fed into the network, and the parameters adjusted after each batch. The examples $\mathcal{B} = [\langle \mathbf{x}_0, \mathbf{y}_0 \rangle, \langle \mathbf{x}_1, \mathbf{y}_1 \rangle, ..., \langle \mathbf{x}_n, \mathbf{y}_n \rangle]$ are given to the network, which calculates the estimates  $\mathcal{Y} = [\mathbf{y^\prime}_0, \mathbf{y^\prime}_1, ..., \mathbf{y^\prime}_n]$. We can then estimate the parameters using gradient descent: 
+\begin{equation}
+    \label{equation:graddesc}
+    \mathbf{p} \leftarrow \mathbf{p} - \alpha (\sum_{\langle \mathbf{x}_0, \mathbf{y}_0 \rangle} \frac{\delta \mathcal{L}(\mathbf{y_i}, \mathbf{y_i^\prime})}{\delta \mathbf{p}})
+\end{equation}
+ 
+In Equation \ref{equation:graddesc} we have the parameter $\alpha$, this is known as the learning rate, and it controls how fast we perform gradient descent. If the learning rate is too high we may fail to converge on any minima, as we always overshoot, but if the learning rate is too low, we will converge slowly and possibly to a bad local minima.
+\newline
+ 
+We can calculate the gradient of our loss function as required in Equation \ref{equation:graddesc} using the backpropogation algorithm.
+
+\subsection{Recurrent Neural Networks}
+
+The outputs from the neural networks seen so far are only dependant on the current input vector, as an assumption is made that the underlying function it is trying to learn is only dependant on one input. However, in real world use cases, the data being inputted into the network may be sequential, with output only needing to be produced after the entire sequence has been fed in. 
+\newline
+ 
+The issue of being dependant on previous data can be solved by using Recurrent Neural Networks (RNNs). The network is then built up using recurrent units which not only have the output of the previous layer as an input, but also the unit's output from the previous element in the sequence. A recurrent unit is shown in figure \ref{figure:rrnunit}, where the input feature $\mathbf{x}_t$ is combined with the previous output $\mathbf{h}_{t-1}$ in order to produce the output $\mathbf{h}_t$.
+\newline
+ 
+However, \ref{} showed that for long-term dependencies, finding optimal parameters, become almost impossible, due to the vanishing gradient problem. When an RNN unrolled, they can be seen as very deep neural networks. When gradient descent is applied to these deep networks we take   the product of the gradients of many activation functions, where the value of each is often between 0 and 1, meaning the product quickly goes to 0 and a negligible effect is seen when tuning the weights.
+% The two inputs can be combined in any way, a na\"{i}ve approach would be to concatenate the two inputs as seen in Equation \ref{equation:rnn}, before applying our activation function. 
+% \begin{equation}
+%     \label{equation:rnn}
+%     \mathbf{h_t} = \sigma(\mathbf{x_t}^\frown \mathbf{h_{t-1}})
+% \end{equation}
+% However, for two dependant inputs $x_s$ and $x_t$, if $s<<t$, $x_s$ has a very small effect on the output $h_t$, and the effect diminishes further as $t$ gets larger than $s$, meaning this dependency is not fully seen. Thus, RNNs fail to capture these long-term dependencies.
+
+\subsubsection{Long Short-Term Memory Units}
+Long Short-Term Memory Units offer a solution to this problem, by keeping this long term information in a new cell state property, $\mathbf{c_t}$, as an addition to the hidden state (previous output) $\mathbf{h_t}$. The cell state is only modified by linear operators, and so doesn't diminish over time.
+\newline
+ 
+For a given batch of input vectors, $\mathbf{x_t}$, as well as a cell state $\mathbf{c_{t-1}}$, and a hidden state $\mathbf{h_{t-1}}$, the output is calculated by first updating the cell state using the forget gate $\mathbf{f_t}$, which removes old, irrelevant data and from the cell state, which can then be updated using the input gate $\mathbf{i_t}$. These are calculated using:
+\begin{gather}
+    f_t = \sigma (W_f \cdot [h_{t-1}, x_t] + b_f) \\
+    i_t = \sigma (W_i \cdot [h_{t-1}, x_t] + b_i) \\
+    \widetilde{C_t} = \tanh{(W_C \cdot [h_{t-1}, x_t] + b_C)} \\
+    C_t  = f_t * \widetilde{C_t} + i_t * \widetilde{C_t}
+\end{gather}
+Where $W_f$, $W_i$ and $W_C$ are the weights for each of the gates and $b_f$, $b_i$ and $b_C$ are their respective biases, and $*$ is the element-wise product. 
+\newline
+ 
+We can then similarly calculate the output gate, and finally the output using a combination of the output gate and the updated cell state.
+\begin{gather}
+    o_t = \sigma (W_o \cdot [h_{t-1}, x_t] + b_o) \\
+    h_t = o_t * \tanh{C_t}
+\end{gather}
+
+% \subsection{Autoencoders}
+% \label{section:autoencoder}
+% An autoencoder is an unsupervised neural network that is often used to create efficient encodings of vectors of a given size, that is reduce the number of dimensions of the vector, whilst keeping the same information. A simple autoencoder is shown in Figure \ref{figure:autoencoder}. A vector of size $n$ is passed to the autoencoder, which is then encoded into a vector of size $p$, before the network attempts to reconstruct the original vector of size $n$. Labelled data is not required whilst training the autoencoder as the desired output of the network and the input are identical, so our loss function can be calculated using the output and the input.
+% \newline
+ 
+% In this project autoencoders will not be used to find more efficient encodings of data, but rather as one class classifiers. Given two classes which examples can be classified in to, the autoencoder is trained on only one of these classes, allowing it to perform well in encoding and decoding that class. When using the autoencoder for classification, the value of the loss function for examples of the class it was trained on should be lower than a chosen threshold, whereas the loss should be higher than the threshold for examples outside of the class, these examples are classified to be in the second, unseen, class.
+
+\section{K-Means Clustering}
+K-means clustering is a way of clustering points in vector space, in a way that minimises some distance metric between each point and the centre of the clusters produced. 
+\begin{equation}
+    \sum_{i=1}^{n}\sum_{j=1}^{k}w_{ij}D(x_i, \mu_j)
+\end{equation}
+Where $D$ is the distance metric, $\mu_j$ is the centroid of cluster $j$, and $w_{ij} = 1$ iff element $x_i$ is a member of cluster $j$.
+\newline
+
+The algorithm works by, firstly, randomly selecting $k$ points from the dataset $X$ as the initial means. It then assigns each point to the cluster with the closest mean, and finally sets the mean of each cluster to be the average of all the points assigned to it. The assigning and recalculating steps continue until either the means do not change or we reach a specified number of iterations. The final output of the algorithm is a set of $k$ means, the centres of the produced clusters. The algorithm is completely unsupervised, however it does need to be given the number of clusters $k$. 
+
+\subsubsection{Constrained K-means Clustering} \label{section:ckmeans}
+Wagstaff et al. \ref{cop} first introduced constrained k-means clustering as a way to leverage background knowledge about the dataset in order to get better clusters. This is done by creating two sets of constraints, a set of \texttt{MUST LINK} constraints and one of \texttt{CANNOT LINK} constraints. The k-means clustering algorithm proceeds as normal, however when assigning each point to a cluster we must check that none of the constraints are violated, specifically there is either:
+\begin{itemize}
+    \item A point already in the cluster which cannot be grouped with the new point, or
+    \item A point in another cluster that must be grouped with the new point.
+\end{itemize}
+In either of these cases, we find the next closest cluster and attempt to add to that. 
+
+
+\section{Requirements Analysis}
+\label{section:goals}
+\textbf{Core Project Goals:}
+\begin{itemize}
+    \item A new labeled subset of CrimeBB for training and testing
+    \item A machine learning model for classifying posts into crime and non-crime classes
+    \item A semi-supervised machine learning model for classifying posts into crime types
+    \item A hybrid model for classifying posts into crime types, composed of the semi-supervised model and a new rule-based model. 
+    \item Evaluate the performance of the models against each other
+\end{itemize}
+\textbf{Extension Goals:}
+\begin{itemize}
+    \item Investigate the use of different word embeddings as the inputs to the various models
+    \item A metric to take the classifications of the posts and combine them into a classification for the thread which contained the posts. 
+\end{itemize}
+
+
+\section{Choice of Tools}
+\subsection{Languages}
+The entirety of the project was implemented using \texttt{Python3}. It has a good collection of libraries for use in natural language applications, and has become the go-to language for machine learning, and as such has a lot of relevant documentation available.
+
+\subsection{Libraries}
+Keras was chosen as the main library for implementing the machine learning models, with TensorFlow as the underlying machine learning framework. Tensorflow is a very fast framework and is an industry standard, and has been used for many natural language processing applications. It also comes with many useful tools, such as TensorBoard, which allows for visualisation of the network and debugging help. 
+
+Gensim was used as the source of our word embedding implementations, this is a Python library which provides an API over the underlying implementations. 
+
+\subsection{Version Control \& Backing-Up}
+Throughout the project I used \texttt{Git} as my version control system, with the code backed-up on \texttt{GitHub}. The dissertation was hosted on Overleaf. All files were regularly backed up to an external hard drive.
+
+\subsection{Development Environment}
+VSCode was the IDE I used throughout this project, along with an assortment of plugins for \texttt{Python3} language support and \texttt{Git} integration.
+
+All the code was run either on my personal laptop (i5 Processor, GTX 1050ti Graphics Card) or on a server I was given access to in the Cambridge Cybercrime Centre.
+
+\section{Starting Point}
+Some of the courses from the Computer Science Tripos provided relevant background for the project:
+\begin{itemize}
+    \item \textbf{1B Artificial Intelligence} - Provided a base level understanding of the theory behind machine learning and neural networks.
+    \item \textbf{1B Formal Models of Language \& II Natural Language Processing} - Provided an understanding of many NLP techniques used throughout the project.
+\end{itemize}
+All code in the project was written from scratch.
+
+\section{Software Engineering Techniques}
+Each of the modules defined by the core goals, detailed in \ref{section:goals}, are dependant on the previous module, and so initially a waterfall development approach was taken to allow the entire system to be implemented. 
+
+Once the baseline system had been implemented, an iterative approach was taken when training each of the models and tuning hyperparameters, as there is no method to determine the best set of parameters that doesn't involve training many models and comparing performance. 
+
+
+
+
+
+
+
+
+
+
+
+
+\chapter{Implementation}
+\label{chapter:implementation}
+This chapter describes the core components of the system, as well as the design decisions that were taken to create the final implementation. Namely, we discuss an RNN (\S\ref{section:rnni}) for classification of posts into crime and non-crime categories, and a semi supervised k-means clustering model (\S\ref{section:kmeansi}) for the classification of posts into crime types. 
+
+\section{Repository Overview}
+\section{Dataset \& Preprocessing}
+\subsection{Training Dataset} \label{section:dataset}
+The training data used throughout the project is a subset of CrimeBB, specifically from HackForums. For each of the four crime types that are to be classified in this project, a labelled set containing 500 posts was created. This was done using a query that produced posts from threads where a keyword relating to one of the crime types is included in the threads heading. This was then displayed in a command line interface, where the posts could be added to the dataset or not. The keywords for each crime type were as follows:
+\begin{itemize}
+    \item Ewhoring - \texttt{\{ewhor, e-whor, packs\}}
+    \item RATs - \texttt{\{RAT\}}
+    \item Stressers - \texttt{\{stresser, booter, DDoS\}}
+    \item Crypters - \texttt{\{crypt, encrypt, FUD\}}
+\end{itemize}
+
+ 
+Non-crime posts are much easier to find in HackForums, due to there being sub-forums which have been created to discuss other topics such as media and recreational activities, therefore a dataset of 10,000 non-crime posts was also created. It was not manually labelled, instead, a query was run to get posts from non-crime related sub-forums that did not include a word from a set of crime related words.
+\begin{itemize}
+    \item Non-crime related sub-forums - \texttt{\{`Photography 101', `Sports World', `Health Wise', `Movies, TV, and Videos', `Science, Religion, Philosophy and Politics'\}}
+    \item Crime related words - \texttt{\{ewhor, e-whor, packs, hack, crypt, encrypt, fud, stresser, booter, ddos, rat, dump, phish, exploit, botnet\}}
+\end{itemize}
+ 
+
+\subsection{Preprocessing}
+This raw data contains information that is not relevant to the classification tasks we are performing in this project. This data includes links, images, code snippets, and text from other posts that are being quoted. The CrimeBB dataset, however, includes tags around this non-text data, meaning it can be easily removed. In addition to this, although HackForums is an English language forum, it does contain some posts in different languages, mainly Russian, which we can remove by removing all non ascii characters. 
+
+\subsubsection{Tokenisation}
+Each post can be split into a list of lowercase tokens. The tokens generated are mainly words, as all punctuation is removed, however contractions are split into multiple tokens for example ``wouldn't" becomes ``would" and ``nt". From this list of tokens, words of length smaller than 3, and English stopwords are removed, as they are unlikely to add meaning or context to post.
+
+\subsubsection{Fixed Vocabulary}
+For the RNN used in this project our lists of tokens must be converted into sequences of integers which represent tokens in a fixed vocabulary. This is done using the Tokenizer class from the keras text preprocessing library\footnote{https://keras.io/preprocessing/text/}, in which each unique token is given an integer encoding. We limit the vocabulary to 10,000 unique tokens, so only the 10,000 most frequent tokens are included. Posts can now be converted into sequences of integers by performing the preprocessing steps on them, before passing them to the Tokenizer class, which returns the list of integers.
+
+\section{Embeddings}
+The integer representation we currently have for our words is extremely simplistic and does not give any insight into the relationships between words. This means that words that have the same or very similar meanings will be treated as entirely different by our models. This technique has been shown to work in classification \ref{some-paper}, but requires a much larger dataset, the model cannot use knowledge about similar words to inform its classification, so each word needs to be seen more. 
+\newline 
+
+Word embeddings can be used to represent each word in vector space, where semantically similar words are near each other and relationships between words represented by the vector between them (the vector from man to king is similar to that from woman to queen). Embedding can be generated using distributional semantics, the idea that meaning is usage. Practically this means that we can approximate a words meaning by looking at the words that occur around it; similar words will appear in similar contexts. This could be done by keeping counts of the words around each word, and doing this for a large dataset. However, this method is slow and requires a lot of space to store the counts ($O(N^2)$ where N is the number of unique words).
+\newline 
+
+The implementation used in this project is \textit{FastText} \ref{fasttext}. FastText is an extension of the \textit{Word2Vec} model proposed in Mikolov et al. (2013) \ref{word2vec}, which is based upon a two layer neural architecture, trained using subsampling (common words are sampled less frequently) and negative sampling (weights are only adjusted for a small number of negative words). FastText expands this by also learning representations for each n-gram of characters within a word. For example given the word ``fast", the model would learn embeddings for ``$<$fa", ``fas", ``ast", ``st$>$" and ``fast", where angular brackets represent the start and end of a word. This can help with the understanding of shorter words and allows the model to understand affixes.
+
+\subsection{Document Embeddings}
+Similar representations can be created for sequences of words using document embeddings, which produce fixed length representations of variable length documents where similar documents are in similar positions in vector space. This project will look at two ways of generating document embeddings 
+
+\subsubsection{Doc2Vec}
+We will use \textit{Doc2Vec} to generate document embeddings. \textit{Doc2Vec} was introduced in Mikolov and Le (2014) \ref{doc2vec}, and extends the framework used by Word2Vec so that paragraph vectors (document embeddings) can also be trained. Two methods of producing paragraph vectors are given in Doc2Vec, Distributed Memory and Distributed Bag of Words, the latter will be used in this project. 
+
+\subsubsection{Term Frequency - Inverse Document Frequency (TF-IDF)}
+TF-IDF is another method of creating document embeddings in the form of a sparse matrix. The representation produces a vector where each element corresponds to a word in the vocabulary, which has it's size limited to 10,000. The value of the $i^{th}$ element $x_i$ is calculated using the following formula:
+\begin{equation}
+    x_i = \texttt{TF}(d, i) * \texttt{IDF}(i)
+\end{equation}
+where $\texttt{TF}(d, i)$ is the number of times word $i$ appears in document $d$, and $\texttt{IDF}(i)$ is the number of documents $i$ appears in. 
+
+\section{RNN for Classifying Crime and Non-crime}
+\label{section:cnc}
+\label{section:rnni}
+A fully supervised model for distinguishing crime and non-crime posts was implemented using a recurrent neural network. In this chapter the design of the final model produced at the end of the iterative development process is discussed, several milestone models from throughout this process are compared in Section \ref{section:rnncompare}.
+
+\subsection{Network Architecture}
+% Want to redo this section 
+% Need a new figure here
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{1\textwidth}
+        \centering\textbf{
+        \includegraphics[width=0.6\linewidth]{rnn}}
+        \caption{Architecture of RNN, including the layer type and the input and output matrix size}\label{Fig:Data1}
+        \label{fig:slam}
+    \end{minipage}\hfill
+\end{figure}
+ 
+\subsubsection{Embedding Layer}
+The input to our network consists of a matrix of integers each row in the matrix represents one of the training texts in the batch. Using the fixed vocabulary previously generated each of the texts has been encoded into a sequence of integers, however all the sequences must be of the same length so they can be combined into the input matrix. The fixed size of the sequences is chosen to be 200, all sequences longer than this are cutoff and sequences shorter than this are padded with trailing zeros. 
+\newline
+ 
+The embedding layer is used to transform the sequences of integers into sequences of embeddings. This is done by first generating a matrix of embeddings, where row $i$ is the word embedding generated using FastText for word $i$ in the fixed vocabulary. This can then be used by the embeddings layer as the weights out, which therefore causes the embeddings from this matrix to be passed to the next layers. These layer weights must be set to not trainable to stop the network from changing the embeddings during backpropogation. 
+ 
+\subsubsection{LSTM Layer}
+The LSTM layer takes the output of the embedding layer word by word and uses this to build its internal memory, which summarises the entire input it has seen so far. Each word updates this memory an output is produced every time a new word is processed. The final output is the summary of the entire input.
+
+\subsubsection{Max Pooling Layer}
+To ensure that features produced at the beginning of the sequence are not forgotten, the outputs produced by the LSTM at each step in the sequence can be aggregated using max pooling. The outputs are combined by taking the max value of each element across the outputs. Max pooling is used as it can more effectively identify the extreme features present in the input data, compared to mean or sum pooling layers, which may dilute the features. In Lai et al. \ref{pooling} it is shown that max pooling can effectively be used after a recurrent layer to `automatically judge which words play role' in the task of text classification. This layer ignores the output from the padded words, discarding them and only taking into account the values produced by the LSTM up to the start of the padding. 
+
+\subsubsection{Dense Layer and Dropout}
+The representation output by the max pooling layer is passed through a multi-layer perceptron consisting of 3 layers. The first layer is a fully connected dense layer which uses the ReLU activation function, which sets all negative values to zero, allowing the model to become non-linear and construct non-linear decision boundaries. A dropout layer follows, which allows the model to avoid overfitting \ref{dropout}. The layer is given a probability of 0.5 to mask each output from the previous layer, effectively setting the output to zero. This is balanced out by halving the output values of the respective layers during the testing phase, to account for twice as many neurons firing.  The final layer in our network is a fully connected layer containing two nodes, which uses the softmax activation function. The softmax function produces a probability distribution across the two possible outputs allowing them to be directly interpreted.
+
+\subsection{SMOTE}
+Despite using dropout, overfitting can still cause an issue with the dataset being used due to the size of the minority class, the set of crime posts. After splitting into training, validation and test sets, we have only 1600 posts in the crime related post dataset, this is relatively small and could lead to our network learning how to classify in a way that does not generalise to other sets.
+\newline
+  
+SMOTE (Synthetic Minority Over-Sampling Technique) is a technique introduced in \ref{smote} as a way to generate new data belonging to the minority class in order to balance the size of the dataset. We generate new points by taking an existing point in the dataset $\Vec{x}$, find it's $k$ nearest neighbours, and for each neighbour $\Vec{n}$ interpolating a new point along the vector to $x$.
+\begin{equation}
+    \Vec{y} = \Vec{x} + \beta(\Vec{n} - \Vec{x})
+\end{equation}
+Where $\beta$ is a randomly generated number between 0 and 1. This process will result in a dataset that is $(k+1) * 100\%$ the size of the original, and which forces the classification generated by the model to be more general. The paper goes on to suggest a mix of under and over-sampling, therefore when training we undersample the non-crime posts by 30\% and oversample the crime posts by 100\%, leaving 5600 non crime and 3200 crime posts.   
+
+\subsection{Initialization}
+The selection of the initial weights and biases can have a large impact how long a network takes to train as well as it's final performance. The vanishing gradient problem can occur if the gradients of the activation functions tend to zero, this happens for our \texttt{tanh} activation function if the input is large or small, a direct consequence of the weights. This can cause the network to train very slowly as the updates to the weights become small during gradient descent. The exploding gradient problem is when the gradient calculated during gradient descent grows very quickly, and can lead to oscillations around minima, or overflow in the worst case. 
+\newline
+ 
+The Xavier Method \ref{xavier} aims to avoid these problems by keeping information flowing through the network in both the forward pass, and during backpropogation. This is done by keeping the distribution of the outputs at each layer the same, as well as the distribution in the gradients calculated in backpropogation at each layer. The mean can be kept constant by setting the initial mean of the weights to zero, and the bias of all the nodes to 0, this will avoid a initialising a positive or negative connection between the layers, or favouring certain neurons above others. 
+\newline
+ 
+The paper shows that the variance of the weight distribution must satisfy the following constraints, Equation \ref{equation:forward} is the constraint to maintain the variance in the forward pass, and Equation \ref{equation:back} is the constraint needed to maintain the variance during backpropogation. 
+\begin{equation} \label{equation:forward}
+    \operatorname{Var}(W^i) = \frac{1}{n^i}
+\end{equation}
+\begin{equation} \label{equation:back}
+    \operatorname{Var}(W^i) = \frac{1}{n^{i+1}}
+\end{equation}
+Where $W^i$ is the weights at layer $i$ and $n^i$ is the size of layer $i$. It is not possible to satisfy both Equation \ref{equation:forward} and \ref{equation:back} if $n^i \neq n^{i+1}$, and so an average of the two is used instead.
+\begin{equation}
+    \operatorname{Var}(W^i) = \frac{2}{n^{i} + n^{i+1}}
+\end{equation}
+Any distribution can then be used as long as it has mean 0 and variance $\frac{2}{n^{i} + n^{i+1}}$. In this project, as in the original paper, a uniform distribution is used.
+\begin{equation}
+    W \sim U\left[-\frac{\sqrt{6}}{\sqrt{n_{i}+n_{i+1}}}, \frac{\sqrt{6}}{\sqrt{n_{i}+n_{i+1}}}\right]
+\end{equation}
+
+\subsection{Optimization}
+The choice of learning rate, $\alpha$ in Equation \ref{equation:graddesc}, is important to both the final performance and training time of any model. During the start of the training process, large values of $\alpha$ are desirable as they allow the network to explore the parameter space, whereas later in the process small values are desirable, as they allow the model to converge into a minima. Therefore a strategy for selecting appropriate values of $\alpha$ at each point is required for an efficient, high-performance network.
+\newline
+ 
+To this end, the Adam optimiser \ref{adam} will be used in this project, which is described as combining the advantages of Adagrad \ref{adagrad} and RMSProp \ref{rmsprop}. Adam uses both the gradient and the second moment of the gradient to compute a learning rate for each weight separately.
+\newline
+
+Binary cross entropy is used as the loss function as it can accurately quantify the distance between the probability distribution predicted by our model ${\hat{y}, 1-\hat{y}}$ and the true distribution ${y, 1-y}$.
+\begin{equation}
+    \textit{\text{BCE}} =  -(y\log(\hat{y}) + (1-y)\log(1-\hat{y}))
+\end{equation}
+This is the preferred loss function for binary classification as it penalises the incorrect output value from the two output labels.
+\newline 
+
+The dataset used for training and testing the model is a combination of the 10,000 non-crime posts and 2000 crime posts (\S\ref{section:dataset}). This complete dataset is split up into a training, validation and test splits in the ratio 80/10/10, during development, the model is trained using the training split and the performance is evaluated using the validation dataset. The final model, which has the highest performance on the validation dataset is then evaluated using the test set.
+
+% \subsection{Autoencoder}
+% \label{section:autoencoderi}
+% An semi-supervised Autoencoder was implemented to classify posts into crime and non-crime categories, through the use of one-class classification. By training the autoencoder to be able to encode and decode one class of posts accurately, classification could be done based on it's performance on new examples. 
+% \newline
+
+% Throughout this chapter the final design of the network is discussed, and only implementation details that differ from the RNN implementation are explored.
+
+% \subsubsection{Network Architecture}
+% \begin{figure}[hbt!]
+%     \centering
+%     \begin{minipage}{1\textwidth}
+%         \centering\textbf{
+%         \includegraphics[width=0.4\linewidth]{autoencoder}}
+%         \caption{Architecture of Autoencoder, including the layer type and the input and output matrix size}\label{Fig:Data1}
+%         \label{fig:slam}
+%     \end{minipage}\hfill
+% \end{figure}
+ 
+% The architecture was implemented using the standard design outlined in \S\ref{section:autoencoder}, with $p=120$ (the final size of our document embeddings) and $n=32$. The two layers are fully connected layers and \texttt{tanh} is used as the activation function to limit the outputs from each neuron to between [-1, 1]. We train the network in mini-batches of 32 to speed up the training process by having weight adjustment every 32 examples.
+
+% \subsubsection{Loss Function}
+% When training the autoencoder we need a way to see how close it came to reconstructing the original vector. The natural way to do this for our Doc2Vec embeddings is to compare the vectors using mean squared error, as the more similar two texts are the closer they should be in the vector space.
+
+% \subsubsection{Choosing a Loss Threshold}
+
+\section{Classifying Crime Type}
+\label{section:kmeansi}
+Once the posts have been classified into crime and non-crime using one of the models discussed in \S\ref{section:cnc}, a method is required to classify the crime posts into the individual crime types. A semi-supervised k-means implementation has been produced to perform this classification.  
+
+\subsection{Dataset}
+To be able to train the semi-supervised k-means model, a mix of labelled and unlabelled data is required. A dataset containing 2000 labelled examples has already been collected (\S \ref{section:dataset}), which can be expanded to include unlabelled posts by taking posts from CrimeBB subforums that are likely to discuss criminal activities, such as the \texttt{E-whoring} subforum. This process will result in a dataset which does not just contain posts about the 4 crime types being classified in this project, however, the labelled posts will give structure to the clusters and so the effect of these outliers will be minimal. 
+\newline
+ 
+A result of this approach is that the proportion of labelled to unlabelled examples can be varied, allowing the optimal proportion for the implementation to be found.
+
+\subsection{K-means Algorithm}
+The implementation of k-means in this project is based on the constrained k-means algorithm previously discussed in \S\ref{section:ckmeans}. This algorithm consists of the standard k-means clustering algorithm, but allows the use of background knowledge to be leveraged, in the form of constraints, to create more informed clusters. We perform this clustering on the document embeddings generated using Word2Vec or TF-IDF.
+\newline
+
+To be able to extend the k-means algorithm to account for constraints a set of must-link and cannot-link constraints must be generated. The labels on the labelled subset of the dataset are used to model the constraints between points, with posts of the same crime type given a must-link relationship, and posts with a different crime type given a cannot-link relationship. The unlabelled points are all given a $5^{th}$ label which has no constraints for ease of implementation. The standard k-means algorithm can then be modified so that it checks the label of a point before adding it to a cluster.
+\newline
+
+\subsubsection{Optimization}
+Due to the simplicity of the constraints generated using the labels, the labelled data always ends up forming 4 clusters, with each cluster containing all of the posts from one of the crime types. An alternative implementation would therefore be to assign all the labelled posts to clusters during the initialization phase, based on the labels. This has the benefit of speeding up the implementation, as constraints don't need to be checked in the assigning phase. 
+\begin{algorithm}[hbt!]
+    \SetAlgoLined
+    \KwResult{Classification of post $p$ }
+     initialization\;
+     \While{While condition}{
+      instructions\;
+      \eIf{condition}{
+       instructions1\;
+       instructions2\;
+       }{
+       instructions3\;
+      }
+     }
+     \caption{Constrained k-means}
+\end{algorithm}
+
+A further, potentially more important, benefit of this method is that it provides a way to initialize the cluster centres. Currently the cluster centres are being initialized as a random point from the dataset, which may not be a good estimate of the final centre. By intitializing them using the labelled posts the initial centres would be closer to the desired centres, making the algorithm more efficient and more likely to generate optimal centres for classification.
+
+\subsubsection{Distance Metric}
+The choice of distance metric is an important one for the final performance of the model, as the aim of the training phase is to minimise the within-class distance. When classifying the embeddings that have been created using Doc2Vec, cosine similarity will be used as our distance metric, shown by Lau et al. \ref{} to be effective at identifying similar documents given their doc2vec embeddings.
+
+
+Cosine similarity can also be used on TF-IDF vectors, although due to the unrestricted number of non-zero elements cosine similarity can be affected by the curse of dimensionality. As we increase the number of dimensions, the ratio between the closest and furthest points approaches 1, and as such the points appear to be normally distributed, making classification almost impossible. Aggarwal et al. showed that in high dimensions manhattan distance is preferable to using euclidean distance, which, assuming the vectors are normalised, is proportional to the cosine distance. We therefore use the manhattan distance as the metric for our TF-IDF vectors.
+
+\subsubsection{Classification}
+In most applications k-means is used run on the entirity of the data, which once complete, returns the clusters that each point belongs to. However, in this project the ability to give the classify new data, taken from the forums, and applying a label to the new data is required. We can assign this new data to a cluster using the cluster centres that are returned by the algorithm, assigning the point to the cluster with the closest centre. A label can then be generated using the labelled data in that cluster, as each cluster is required to only have 1 label within it.
+
+\subsection{Hybrid System}
+Previous work in this area has seen significant improvement on statistical models, such as the constrained k-means model implemented in this project, by combining them with a rule based model, to create a hybrid classification model. 
+
+\subsubsection{Rule-Based Model}
+The rule-based model is based on the `Author intent labelling heuristics' implemented in Caines et al. \cite{intent}. From observations of the data, a marker consisting of a regular expression is created for each crime type. The following algorithm can then be used to decide the crime type:
+\begin{algorithm}[hbt!]
+    \SetAlgoLined
+    \KwResult{Classification of post $p$ }
+     \eIf{Ewhoring marker in post}{return `Ewhoring'}{\eIf{Stresser marker in post}{return `Stresser'}{\eIf{RAT marker in post}{return 'RAT'}{\eIf{Crypter marker in post}{return `Crypter'}{return random classification}}}}
+     \caption{Rule-Based Model}
+\end{algorithm}
+\noindent
+As there is no majority class in the training dataset, instead of having a default value, a random classification will be selected if no markers are matched. 
+
+\subsubsection{Hybrid Model}
+The hybrid model can be created by removing the random choice if no markers are matched, and replacing it with classification using the existing k-means model.
+
+\begin{algorithm}[hbt!]
+    \SetAlgoLined
+    \KwResult{Classification of post $p$ }
+     \eIf{Ewhoring marker in post}{return `Ewhoring'}{\eIf{Stresser marker in post}{return `Stresser'}{\eIf{RAT marker in post}{return `RAT'}{\eIf{Crypter marker in post}{return `Crypter'}{return k-means classification}}}}
+     \caption{Hybrid Model}
+\end{algorithm}
+
+
+
+
+
+
+\chapter{Evaluation}
+In this chapter, the results produced throughout the iterative development process, and the final results achieved on the test set will be presented. The results for the non-crime classifier show that the RNN performs well, surpassing the baseline set in the project proposal. The statistical (k-means) crime type classifier also achieves good results, and unlike in Caines et al. \cite{intent} outperforms both the rule based and hybrid models. 
+\newline 
+
+In Section \ref{section:metrics} the performance metrics that will be used on both of the models are discussed. Section \ref{section:rnncomp} presents the results achieved by the RNN at various stages of development, and the effect of major hyperparameters are explored. It then goes on to compare the performance of the final model, run on the test set, with the core goals outlined in \S\ref{section:goals}. 
+\newline
+
+Section \ref{sections:ctcomp} explores how the crime-type classifiers performed. Firstly, the results of the constrained k-means model are presented, with comparison made between the results when the embedding method is changed or the amount of unlabelled data is increased. Comparison is then made between the statistical, rule-based and hybrid models, concluding with the selection of the model to be used in the final system. Section \ref{section:deploy} reports how well the final model performs, highlighting specific areas of strength and weakness.
+
+
+% metrics - comparison with core goals
+% challenges faced in the data
+
+\section{Metrics}
+\label{section:metrics}
+The standard metrics for information retrieval tasks such as classification are precision, recall and F-measure. Precision and recall are defined in terms of true positives (TP), false positives (FP) and false negatives (FN). 
+\begin{equation}
+    \textit{\text{Precision}} = \frac{\operatorname{TP}}{\operatorname{TP} + \operatorname{FP}}
+\end{equation}
+\begin{equation}
+    \textit{\text{Recall}} = \frac{\operatorname{TP}}{\operatorname{TP} + \operatorname{FN}}
+\end{equation}
+
+\noindent
+The F-measure is defined as the harmonic mean of precision and recall.
+\begin{equation}
+    \textit{\text{F}} = 2 \cdot (\frac{\textit{\text{Precision}} \cdot \textit{\text{Recall}}}{\textit{\text{Precision}} + \textit{\text{Recall}}})
+\end{equation}
+
+\noindent
+For the crime and non-crime classifier, true positives are crime posts predicted to crime, false positives are non-crime posts predicted to be crime and false negatives are crime posts predicted to be non-crime. Due to the imbalanced validation and test datasets, precision is of high importance, as the number of true positives could easily be outnumbered by the number of false positives even on a classifier with high accuracy.
+\newline
+
+\noindent
+When evaluating the performance of the crime type classifier the precision and recall will be calculated for each class individually, and the average scores across the classes will be reported. Cohen's Kappa \cite{cohen1960coefficient} will also be used to compare the performance of the classifier to the groundtruth taken from the manual labelling. 
+\begin{equation}
+    \kappa = \frac{p_o - p_e}{1 - p_e}
+\end{equation}
+Where $p_o$ is the accuracy of the classifier and $p_e$ is the chance of randomly assigning the right class. Cohen's Kappa takes into account the chance of randomly assigning to the right class, which in the case of this model is 25\%. This corresponds to the baseline performance that we set out in the project proposal, therefore Cohen's Kappa values of greater than 0 will be seen as a success in terms of the project, however the closer the value is to one the better. 
+
+\section{Classifying Crime and Non-Crime}
+\label{section:rnncomp}
+\subsection{RNN Model Comparison}
+
+\begin{table*}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+Epochs & Dropout (\%) & SMOTE & Accuracy (\%) & Precision (\%) & Recall (\%) & F1 Score\\ \hline \hline
+2 & 0.0 & No & 90.9 & 64.6 & 90.1 & 75.6 \\ \hline
+5 & 0.0 & No & 90.5 & 64.1 & 87.3 & 74.0 \\ \hline
+10 & 0.0 & No & 87.2 & 63.0 & 25.4 & 36.2 \\ \hline
+2 & 0.2 & No & 91.9  & 65.6 & 90.0 & 75.9\\ \hline
+2 & 0.5 & No & 92.3 & 67.0 & 91.0 & 77.0\\ \hline
+2 & 0.8 & No & 86.1 & 50.6 & 86.0 & 63.7 \\ \hline
+2 & 0.5 & Yes & \textbf{93.6} & 70.4 & 95.0 & 80.9\\ \hline
+\end{tabular}
+\caption{Parameters and metrics for milestone RNN models, calculated as an average over 10 rounds of repeated random sub-sampling  validation} 
+\label{table:rnncomp}
+\end{table*}
+Each milestone model was evaluated using the validation set that was taken from the collected dataset. The results in Table \ref{table:rnncomp} show some of the effects that the model parameters have on the overall performance. 
+
+When increasing the number of epochs overfitting on the training dataset occurs quite quickly, the drop in recall when going from 2 epochs to 10 epochs shows that the model is overfitting on the positive examples in the training set, and therefore failing to identify positive examples in the validation set. 
+
+\textbf{Add graph of loss as the number of epochs grow}
+
+Dropout has minimal effect on the performance of the network, with small values of dropout improving the network performance slightly. A larger effect is seen when high values of dropout are used, with so many of the outputs being set to 0 it becomes harder to identify patterns, and thus harder to classify.
+
+A larger effect is seen when using SMOTE to balance the training dataset, the addition of the generated data improves the models ability to identify positive examples, leading to higher precision and accuracy.
+
+Low precision, 50.6-70.4\%, is consistently seen across the models due to the imbalance in the dataset. With almost 5x times as many non-crime posts as crime posts, even with a high accuracy, the number of false positives will be relatively high compared to the number of true positives. This however, is representative of the data in CrimeBB, and so is useful when evaluating how the models will perform when applied in the real world. The highest performing classifier does however meet the baseline precision that was established as a core goal in the project proposal.
+
+% \subsection{Comparison of Methods}
+% \begin{table*}[h]
+% \centering
+% \begin{tabular}{|c|c|c|c|c|c|}
+% \hline
+% Model & Dataset & Accuracy (\%) & Precision (\%) & Recall (\%) & F1 Score\\ \hline \hline
+% SVM & Test & 7 & 78.5 & 70.7 &\\ \hline
+% RNN & Test & 80.2 & 80.0 & 80.1 &\\ \hline
+% SVM & Extra & 0.0 & 0.0 & 0.0 &\\ \hline
+% RNN & Extra & 0.0 & 0.0  & 0.0 &\\ \hline
+% \end{tabular}
+% \caption{Performance metrics for each ratio of unlabelled to labelled data}
+% \end{table*}
+
+% The performance of both models is comparable on the test set, both achieving high values of recall and accuracy, with the autoencoder slightly higher. Furthermore, we see a large difference between the precision of the models, with the autoencoder achieving a much higher precision on this test set. As high precision is very desirable given the application of this model, this gives the autoencoder a large advantage over the RNN model. 
+
+% Both models were also tested using data not included in the test and validation datasets. This was done as the non-crime data in the training, validation and test datasets has been taken from the same set of 5 sub-forums (outlined in \S\ref{section:dataset}). As non-crime data can come from any sub-forum in the real world it should be ensured that the models have not overfit onto data from these sub-forums alone. To do this a small dataset, consisting of 200 non-crime and 100 crime posts, was manually selected from HackForums and used to test the models. Table \ref{table:nccomp} shows that this test reveals very different behaviour in the two classifiers, almost every example in the new dataset is classified as crime by the autoencoder, whereas the RNN still maintains good performance. This behaviour is likely due to the autoencoder only being trained on non-crime data, having never seen crime data, it will classify any data that varies from what it has seen as crime. The performance of the autoencoder could therefore be improved by training it on a much larger, more varied, dataset, that allows it to have a better generalisation of non-crime data, but due to the extra time needed to do collect and label this data, it is not feasible for this project.
+
+\section{Classifying by Crime Type}
+\label{sections:ctcomp}
+\subsection{Statistical Model}
+\subsubsection{Doc2Vec vs TF-IDF}
+\begin{table*}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Embedding & Accuracy (\%) & Av. Precision (\%) & Av. Recall (\%) & Av. F1 Score\\ \hline \hline
+TF-IDF & 63.5 & 52.4 & 63.5 & 55.5 \\ \hline
+Doc2Vec & 80.0 & 80.2 & 80.0 & 80.1 \\ \hline
+\end{tabular}
+\caption{Performance metrics for each embedding type} \label{table:tfd2v}
+\end{table*}
+\noindent
+Table \ref{table:tfd2v} shows the performance achieved by the classifiers run on the validation set, using a labelled to unlabelled ratio of 1:1. The Doc2Vec model for creating word embedding significantly outperforms (p=) the TF-IDF model when used in the clustering algorithm. This is expected due to Doc2Vec being a much more sophisticated method which takes into account context surrounding words. TF-IDF does not capture any semantic meaning between words, therefore if there are two texts in the same class without any common words, as is often seen, the manhattan distance between that any a text in any other class will be similar. 
+
+\subsubsection{Ratio of Crime to Non-crime}
+\begin{table*}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Labelled:Unlabelled & Accuracy (\%) & Av. Precision (\%) & Av. Recall (\%) & Av. F1 Score\\ \hline \hline
+No Unlabelled & 78.5 & 75.0 & 78.5 & 70.7 \\ \hline
+1:1 & 80.0 & 80.2 & 80.0 & 80.1 \\ \hline
+1:2 & 70.0 & 72.1 & 69.7 & 64.3 \\ \hline
+1:5 & 62.5 & 45.7 & 60.5  & 51.5 \\ \hline
+\end{tabular}
+\caption{Performance metrics for each ratio of unlabelled to labelled data}
+\end{table*}
+\noindent
+When evaluating our k-means crime type classifier against the validation set, we explore the effect that different ratios of labelled to unlabelled posts have on the performance of the classifier. As the number of unlabelled posts increases compared to the number of labelled posts, initially, an improvement in performance is seen, with a slight increase in all metrics between having no unlabelled posts and having an equal number of labelled and unlabelled. However, as this ratio increases further a quick decline in the accuracy of the classifier is seen. The unlabelled dataset extracted from a dataset that contains not just the crime data we wish to look at, but also non-crime data and posts discussing other crime types, meaning as more unlabelled data is added the amount of noise in the data increase, causing the clusters have less structure.
+
+\subsubsection{Performance Across Crime Types}
+\begin{table*}[h]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Class & Precision (\%) & Recall (\%) & F1 Score\\ \hline \hline
+Ewhoring & 78.5 & 75.0 & 78.5 \\ \hline
+Stressers & 80.0 & 80.2 & 80.0 \\ \hline
+Crypters & 70.0 & 72.1 & 69.7 \\ \hline
+RATs & 62.5 & 45.7 & 60.5  \\ \hline
+\end{tabular}
+\caption{Performance metrics per class achieved by the best classifier} \label{table:perclass}
+\end{table*}
+
+Another observation made whilst compiling these results is the consistently low recall for posts that should be classified under `Remote Administration Tools'. This is balanced out by consistently low precision for the `Crypter' class, which leads to the conclusion, due to the high precision and recall seen in the other classes, that many posts which should be classified as `RAT' are being classified as `Crypter'. As Crypters and RATs are two crime types under the category of malware they share a similar vocabulary are discussed in similar contexts, as such there is a low inter-class variation between the two classes, which leads the classifier to make many mistakes. This issue may become more prevalent if the classifier is expanded to more crime types in later work where the inter-class variability is also low.
+
+The other crime types, Ewhoring and Stressers, see a consistently high precision and recall. Both crime types are very separate from each of the other crime types, that is the vocabulary and context is very different to each of the others. This high inter-class difference allows for examples belonging to this class to be easily identified and means that examples from other classes are rarely confused with this class.
+
+
+\subsection{Rule-based and Hybrid Model}
+
+\begin{table*}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Model & Accuracy (\%) & Av. Precision (\%) & Av. Recall (\%) & Av. F1 Score\\ \hline \hline
+Statistical & 79.1 & 80.4 & 78.6 & 79.3 \\ \hline
+Rule-Based & 37.0 & 36.7 & 37.0 & 36.6 \\ \hline
+Hybrid & 77.5 & 82.9 & 77.5 & 71.0 \\ \hline
+\end{tabular}
+\caption{Average metrics across the crime types for each classifier on the test dataset} \label{table:hybrid}
+\end{table*}
+Table \ref{table:hybrid} describes the final evaluations of each of the crime type classification models run on the test dataset. The statistical model performs slightly worse than it did on the validation set, but still manages $k=0.721$, which can be interpreted \cite{landis1977measurement} as substantial agreement between the classifier and the groundtruth. The rule-based model's performance is significantly worse than that achieved by the statistical model, however it still manages to achieve $k=0.16$ meaning slight agreement between it's classifications and the groundtruth.
+\newline  
+
+When the two models are combined, the performance is actually lower compared to the statistical classifier, achieving a Cohens Kappa score of $k=0.7$, this is likely due to the rule based doing classification first, allowing it to make wrong classifications. Posts are only passed to the statistical model if the rule-based cannot make a definite classification. 
+
+\section{Deployment Test Evaluation}
+\label{section:deploy}
+
+\chapter{Conclusion}
+\section{Achievements}
+The initial goal of this project was to implement a classification system, which given posts from CrimeBB can classify them as non-crime or one of 4 crime types. The project has been a success as this goal has been met, by the way of meeting the core goals set out in \S\ref{section:goals}.
+\newline
+
+A new dataset of 2000 posts was manually labelled, consisting of 500 posts from CrimeBB for each of the 4 crime types this project focused on. A model, using an RNN architecture and LSTM cells, was implemented for the classification of posts into crime and non-crime classes. In order to balance the training data, SMOTE was implemented to generate new crime examples, allowing the model to classify more generally. This model managed to achieve high accuracy on the testing dataset, and, despite a large unbalance in the dataset, maintain a high precision and recall when attempting to identify crime examples. 
+\newline
+
+A semi-supervised k-means model was implemented to classify posts discussing crime into the 4 crime type classes. The model achieved accuracy well above the baseline set out in the project proposal. A rule-based model was then created, which surpassed the baseline accuracy, but still vastly under-performed the more complex k-means model. Inspired by Caines et al. \cite{intent} the k-means and rule-based models were combined to create a hybrid model. These 3 models were thouroughly evaluated against each other, with the conclusion that unlike in Caines et al. the hybrid model significantly underperformed the statistical model.
+\newline
+
+Finally we combined the non-crime classifier and the crime type classifier into a single system that meets the original goal of the project.
+
+\section{Lessons Learnt}
+The main issue encountered when implementing this project was the difficulty in deciding which models and techniques to use. As this project was designed from scratch, there was a lot of time taken to explore the field and decide what form the classifiers should take. Two models for non-crime classification, one based on an autoencoder and the other on an SVM, were implemented and subsequently rejected when the performance was deemed to be too low. This slowed down the project, but it did allow the opportunity to learn about the field more broadly, and showed how hard applying knowledge from the field to a real-world dataset can be.
+
+\section{Further Work}
+This project gives lots of opportunities for further work. The most obvious opportunity is the expansion of the system to work on more crime types and to test its performance across different underground forums. This step would probably not require too many changes to the underlying models, but would require a much larger training dataset to be collected and labelled covering the additional crime types, something which was not feasible for this project.
+\newline
+
+The two extension goals that were proposed at the start of the project are also areas further work could be put into. The investigation of how different models for creating embeddings effect the performance of the final system would be interesting. BERT and ELMo are state-of-the-art word embedding models, which take into account much more of the context when inferring a vector for a word. This would potentially give better performance to our model, especially in the case of similar crime types such as `Crypters' and `RATS'. The implementation of a metric to use the classification of individual posts into to a classification for a thread could make it easier for researchers to find discussions about a specific crime type.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the bibliography
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{plain}
+\bibliography{refs.bib}
+
+\end{document}
